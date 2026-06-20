@@ -8,6 +8,13 @@ export async function GET() {
     const root = getCampaignRoot();
     const sessionsDir = path.join(root, 'raw/sessions');
 
+    // Safety check: ensure sessionsDir lies within the campaign root
+    const relative = path.relative(root, sessionsDir);
+    const isSafe = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    if (!isSafe) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
     let nextSessionNum = 1;
 
     if (fs.existsSync(sessionsDir)) {
@@ -38,6 +45,13 @@ export async function POST(request: Request) {
     const root = getCampaignRoot();
     const sessionsDir = path.join(root, 'raw/sessions');
 
+    // Safety check: ensure sessionsDir lies within the campaign root
+    const relative = path.relative(root, sessionsDir);
+    const isSafe = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    if (!isSafe) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
     if (!fs.existsSync(sessionsDir)) {
       fs.mkdirSync(sessionsDir, { recursive: true });
     }
@@ -65,6 +79,13 @@ export async function POST(request: Request) {
     const paddedNum = String(nextSessionNum).padStart(2, '0');
     const fileName = `session-${paddedNum}.md`;
     const filePath = path.join(sessionsDir, fileName);
+
+    // Safety check: ensure resolved filePath lies within sessionsDir
+    const fileRelative = path.relative(sessionsDir, filePath);
+    const isFileSafe = fileRelative && !fileRelative.startsWith('..') && !path.isAbsolute(fileRelative);
+    if (!isFileSafe) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     // Format file with a header
     const fileTitle = title || `Session ${paddedNum}`;

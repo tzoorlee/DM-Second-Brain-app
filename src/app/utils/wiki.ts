@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import matter from 'gray-matter';
 
 export interface EntityFrontmatter {
   type?: string;
@@ -28,53 +29,8 @@ export function getCampaignRoot(): string {
 }
 
 export function parseMarkdown(content: string): { frontmatter: EntityFrontmatter; body: string } {
-  const frontmatter: EntityFrontmatter = {};
-  let body = content;
-
-  if (content.startsWith('---')) {
-    const endFrontmatterIndex = content.indexOf('---', 3);
-    if (endFrontmatterIndex !== -1) {
-      const rawFrontmatter = content.substring(3, endFrontmatterIndex).trim();
-      body = content.substring(endFrontmatterIndex + 3).trim();
-
-      const lines = rawFrontmatter.split('\n');
-      for (const line of lines) {
-        const colonIndex = line.indexOf(':');
-        if (colonIndex !== -1) {
-          const key = line.substring(0, colonIndex).trim();
-          let valStr = line.substring(colonIndex + 1).trim();
-
-          // Remove enclosing quotes if any
-          if ((valStr.startsWith('"') && valStr.endsWith('"')) || (valStr.startsWith("'") && valStr.endsWith("'"))) {
-            valStr = valStr.substring(1, valStr.length - 1);
-          }
-
-          // Parse array format: [tag1, tag2]
-          if (valStr.startsWith('[') && valStr.endsWith(']')) {
-            const arr = valStr.substring(1, valStr.length - 1)
-              .split(',')
-              .map(s => s.trim())
-              .filter(s => s.length > 0)
-              .map(s => {
-                if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-                  return s.substring(1, s.length - 1);
-                }
-                return s;
-              });
-            frontmatter[key] = arr;
-          } else if (valStr === 'true') {
-            frontmatter[key] = true;
-          } else if (valStr === 'false') {
-            frontmatter[key] = false;
-          } else {
-            frontmatter[key] = valStr;
-          }
-        }
-      }
-    }
-  }
-
-  return { frontmatter, body };
+  const { data, content: body } = matter(content);
+  return { frontmatter: data as EntityFrontmatter, body: body.trim() };
 }
 
 function getMarkdownFilesRecursively(dir: string, fileList: string[] = []): string[] {
