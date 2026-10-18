@@ -35,42 +35,70 @@ export function parseMarkdown(content: string): { frontmatter: EntityFrontmatter
   return { frontmatter: data as EntityFrontmatter, body: body.trim() };
 }
 
-function getMarkdownFilesRecursively(dir: string, fileList: string[] = []): string[] {
+export interface WikiFile {
+  absolutePath: string;
+  relativePath: string; // relative to wiki/
+  mtimeMs: number;
+}
+
+// Pages that are scaffolding, not campaign content: the wiki's meta files and
+// the `_template-*.md` starters.
+function isContentPage(relativePath: string): boolean {
+  if (relativePath === 'index.md' || relativePath === 'log.md') return false;
+  return !path.basename(relativePath).startsWith('_');
+}
+
+function walkMarkdownFiles(dir: string, wikiDir: string, fileList: WikiFile[] = []): WikiFile[] {
   if (!fs.existsSync(dir)) return fileList;
   const files = fs.readdirSync(dir);
   for (const file of files) {
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
     if (stat.isDirectory()) {
-      getMarkdownFilesRecursively(filePath, fileList);
+      walkMarkdownFiles(filePath, wikiDir, fileList);
     } else if (file.endsWith('.md')) {
-      fileList.push(filePath);
+      const relativePath = path.relative(wikiDir, filePath);
+      if (isContentPage(relativePath)) {
+        fileList.push({ absolutePath: filePath, relativePath, mtimeMs: stat.mtimeMs });
+      }
     }
   }
   return fileList;
 }
 
-export function getAllEntities(): Entity[] {
-  const root = getCampaignRoot();
-  const wikiDir = path.join(root, 'wiki');
-  const files = getMarkdownFilesRecursively(wikiDir);
+export function listWikiFiles(): WikiFile[] {
+  const wikiDir = path.join(getCampaignRoot(), 'wiki');
+  return walkMarkdownFiles(wikiDir, wikiDir);
+}
 
+const DM_SECRETS_HEADING = /^## Secrets \(DM only\)[\s\S]*$/im;
+
+// Splits a page body into what players may see and the inline
+// `## Secrets (DM only)` section, which by convention runs to the end of the page.
+export function splitDmSecrets(body: string): { publicBody: string; dmBody: string } {
+  const match = body.match(DM_SECRETS_HEADING);
+  if (!match || match.index === undefined) return { publicBody: body, dmBody: '' };
+  return { publicBody: body.slice(0, match.index).trimEnd(), dmBody: match[0] };
+}
+
+// Whether a page may be shown in player-safe mode: never `secrets/` pages
+// or entities the PCs don't know about yet.
+export function isPlayerVisible(entity: Entity): boolean {
+  if (entity.frontmatter.type === 'secret') return false;
+  if (entity.relativePath.split(path.sep)[0] === 'secrets') return false;
+  return entity.frontmatter.pg_known !== false;
+}
+
+export function getAllEntities(files: WikiFile[] = listWikiFiles()): Entity[] {
   const entities: Entity[] = [];
 
-  for (const file of files) {
-    const relativePath = path.relative(wikiDir, file);
-    
-    // Ignore meta files in the wiki root
-    if (relativePath === 'index.md' || relativePath === 'log.md') {
-      continue;
-    }
-
+  for (const { absolutePath, relativePath } of files) {
     try {
-      const fileContent = fs.readFileSync(file, 'utf-8');
+      const fileContent = fs.readFileSync(absolutePath, 'utf-8');
       const { frontmatter, body } = parseMarkdown(fileContent);
       
       // Infer title from file name or first H1
-      let title = path.basename(file, '.md');
+      let title = path.basename(absolutePath, '.md');
       const h1Match = body.match(/^#\s+(.+)$/m);
       if (h1Match) {
         title = h1Match[1].trim();
@@ -79,12 +107,12 @@ export function getAllEntities(): Entity[] {
       entities.push({
         title,
         relativePath,
-        absolutePath: file,
+        absolutePath,
         frontmatter,
         body
       });
     } catch (e) {
-      console.error(`Error reading/parsing file ${file}:`, e);
+      console.error(`Error reading/parsing file ${absolutePath}:`, e);
     }
   }
 

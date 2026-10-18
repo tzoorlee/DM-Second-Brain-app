@@ -16,18 +16,43 @@ interface EntityFrontmatter {
   [key: string]: any;
 }
 
-interface Entity {
+interface EntitySummary {
   title: string;
   relativePath: string;
-  absolutePath: string;
   frontmatter: EntityFrontmatter;
+}
+
+interface Entity extends EntitySummary {
+  absolutePath: string;
   body: string;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  npc: 'NPCs',
+  pc: 'Player Characters',
+  city: 'Cities',
+  region: 'Regions',
+  dungeon: 'Dungeons',
+  faction: 'Factions',
+  quest: 'Quests',
+  item: 'Items',
+  event: 'Events',
+  secret: 'Secrets',
+};
+
+// Distinct, lowercased values of a frontmatter field across the wiki.
+const distinctValues = (entities: EntitySummary[], field: 'type' | 'status' | 'canon_status') =>
+  [...new Set(entities.map(e => e.frontmatter[field]?.toLowerCase()).filter((v): v is string => !!v))].sort();
+
 export default function Dashboard() {
-  const [entities, setEntities] = useState<Entity[]>([]);
+  // Every page visible in the current mode (for wikilinks, autocomplete, filter options)
+  const [allEntities, setAllEntities] = useState<EntitySummary[]>([]);
+  // The ranked, filtered results shown in the browser
+  const [results, setResults] = useState<EntitySummary[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
+  const [selectedCanon, setSelectedCanon] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [dmMode, setDmMode] = useState(true);
   
@@ -39,10 +64,12 @@ export default function Dashboard() {
   
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<Entity[]>([]);
+  const [suggestions, setSuggestions] = useState<EntitySummary[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const [suggestionTriggerIndex, setSuggestionTriggerIndex] = useState(-1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Guards against out-of-order responses while the user is typing
+  const searchRequestId = useRef(0);
 
   const fetchNextSessionNum = async () => {
     try {
@@ -58,31 +85,67 @@ export default function Dashboard() {
     }
   };
 
-  const fetchEntities = async (query: string) => {
+  const mode = dmMode ? 'dm' : 'player';
+
+  const fetchAllEntities = async (forMode: 'dm' | 'player' = mode) => {
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/search?mode=${forMode}`);
       const data = await res.json();
       if (data.entities) {
-        setEntities(data.entities);
+        setAllEntities(data.entities);
+        // Leaving DM view must not keep a now-hidden page on screen
+        setSelectedEntity(prev =>
+          prev && !data.entities.some((e: EntitySummary) => e.relativePath === prev.relativePath) ? null : prev
+        );
       }
     } catch (e: unknown) {
       console.error('Failed to fetch entities', e);
     }
   };
 
-  // Load next session number and initial search on mount
+  const fetchResults = async () => {
+    const requestId = ++searchRequestId.current;
+    const params = new URLSearchParams({ q: searchQuery, mode });
+    if (selectedType !== 'all') params.set('type', selectedType);
+    if (selectedCanon !== 'all') params.set('canon', selectedCanon);
+    if (selectedStatus !== 'all') params.set('status', selectedStatus);
+    try {
+      const res = await fetch(`/api/search?${params}`);
+      const data = await res.json();
+      if (data.entities && requestId === searchRequestId.current) {
+        setResults(data.entities);
+      }
+    } catch (e: unknown) {
+      console.error('Failed to search entities', e);
+    }
+  };
+
+  // Load next session number and the page list on mount
   useEffect(() => {
     const init = async () => {
       await fetchNextSessionNum();
-      await fetchEntities('');
+      await fetchAllEntities();
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Switching secrets mode changes which pages exist for links and autocomplete
+  const handleToggleDmMode = () => {
+    const nextDmMode = !dmMode;
+    setDmMode(nextDmMode);
+    fetchAllEntities(nextDmMode ? 'dm' : 'player');
+  };
+
+  // Re-run the search shortly after the query or a filter changes
+  useEffect(() => {
+    const timer = setTimeout(fetchResults, 150);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedType, selectedCanon, selectedStatus, dmMode]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setSearchQuery(val);
-    fetchEntities(val);
+    setSearchQuery(e.target.value);
   };
 
   const handleSelectEntity = async (relativePath: string) => {
@@ -103,7 +166,7 @@ export default function Dashboard() {
     const cleanTarget = target.toLowerCase().replace(/\s+/g, '-');
     
     // Find matching entity
-    const match = entities.find(e => {
+    const match = allEntities.find(e => {
       const nameWithoutExt = e.relativePath.split('/').pop()?.replace('.md', '');
       return nameWithoutExt === cleanTarget || e.title.toLowerCase() === target.toLowerCase();
     });
@@ -137,7 +200,8 @@ export default function Dashboard() {
         setSessionNotes('');
         fetchNextSessionNum();
         // Refresh entities search to make sure any new structural items are visible
-        fetchEntities(searchQuery);
+        fetchAllEntities();
+        fetchResults();
         setTimeout(() => setSaveStatus({ type: null, message: '' }), 5000);
       } else {
         setSaveStatus({ type: 'error', message: data.error || 'Failed to save session' });
@@ -164,7 +228,7 @@ export default function Dashboard() {
       setSuggestionTriggerIndex(lastTrigger);
 
       // Filter entities for autocomplete
-      const filtered = entities.filter(ent => 
+      const filtered = allEntities.filter(ent => 
         ent.title.toLowerCase().includes(searchStr) || 
         ent.relativePath.toLowerCase().includes(searchStr)
       );
@@ -198,7 +262,7 @@ export default function Dashboard() {
     }
   };
 
-  const insertSuggestion = (entity: Entity) => {
+  const insertSuggestion = (entity: EntitySummary) => {
     const val = sessionNotes;
     const cursorPosition = textareaRef.current?.selectionStart || 0;
     
@@ -223,10 +287,9 @@ export default function Dashboard() {
     }, 0);
   };
 
-  const filteredEntities = entities.filter(entity => {
-    if (selectedType === 'all') return true;
-    return entity.frontmatter.type?.toLowerCase() === selectedType;
-  });
+  const typeOptions = distinctValues(allEntities, 'type');
+  const canonOptions = distinctValues(allEntities, 'canon_status');
+  const statusOptions = distinctValues(allEntities, 'status');
 
   const getEntityBadgeColor = (type?: string) => {
     switch (type?.toLowerCase()) {
@@ -366,26 +429,42 @@ export default function Dashboard() {
               style={{ fontSize: '12px', padding: '6px' }}
             >
               <option value="all">All Types</option>
-              <option value="npc">NPCs</option>
-              <option value="pc">Player Characters</option>
-              <option value="city">Cities</option>
-              <option value="region">Regions</option>
-              <option value="dungeon">Dungeons</option>
-              <option value="faction">Factions</option>
-              <option value="quest">Quests</option>
-              <option value="item">Items</option>
-              <option value="event">Events</option>
-              <option value="secret">Secrets</option>
+              {typeOptions.map(type => (
+                <option key={type} value={type}>{TYPE_LABELS[type] ?? type}</option>
+              ))}
             </select>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <select
+                value={selectedCanon}
+                onChange={(e) => setSelectedCanon(e.target.value)}
+                style={{ fontSize: '12px', padding: '6px' }}
+                title="prepared = designed, still malleable · established = confirmed in play"
+              >
+                <option value="all">Any Canon</option>
+                {canonOptions.map(canon => (
+                  <option key={canon} value={canon}>{canon}</option>
+                ))}
+              </select>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                style={{ fontSize: '12px', padding: '6px' }}
+              >
+                <option value="all">Any Status</option>
+                {statusOptions.map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {filteredEntities.length === 0 ? (
+            {results.length === 0 ? (
               <div style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginTop: '20px' }}>
                 No entities found.
               </div>
             ) : (
-              filteredEntities.map((entity) => (
+              results.map((entity) => (
                 <div
                   key={entity.relativePath}
                   onClick={() => handleSelectEntity(entity.relativePath)}
@@ -436,7 +515,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Secrets Mode:</span>
             <button
-              onClick={() => setDmMode(!dmMode)}
+              onClick={handleToggleDmMode}
               style={{
                 fontSize: '11px',
                 padding: '4px 10px',
