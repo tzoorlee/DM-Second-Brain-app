@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { CampaignError } from '../../utils/campaign-error';
-import { STUDIO_STEPS } from '../../utils/studio-steps';
+import { getStep } from '../../utils/studio-steps';
 import { VaultUnavailableError } from '../../utils/vault';
 
 export class BadRequest extends Error {}
 
+// A step (1–9) or a preparation/interlude (101+) of the open campaign
 export function parseStep(value: unknown): number {
   const n = Number(value);
-  if (!STUDIO_STEPS.some(s => s.n === n)) throw new BadRequest(`There is no step ${String(value)}.`);
-  return n;
+  try {
+    if (Number.isInteger(n)) return getStep(n).n;
+  } catch {
+    // fall through
+  }
+  throw new BadRequest(`There is no step ${String(value)}.`);
 }
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {

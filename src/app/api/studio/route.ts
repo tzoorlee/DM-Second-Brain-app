@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { itemStatus, latestSession, listItems } from '../../utils/studio-items';
 import { getStudioModel } from '../../utils/studio-model';
 import { loadStep } from '../../utils/studio-state';
 import fs from 'fs';
@@ -23,6 +24,14 @@ export async function GET() {
       rulesEdition: getField(bible, 'Campaign', 'Rules edition'),
       // Single quotes so $, ` and " in the path stay literal when pasted in a shell
       ingestCommand: `cd '${root.replace(/'/g, `'\\''`)}' && claude "design ingest of raw/worldbuilding"`,
+      latestSession: latestSession(),
+      prepModel: getStudioModel('prep').name,
+      items: listItems().map(item => ({
+        ...item,
+        status: itemStatus(item),
+        usage: loadStep(item.n).usage,
+        ingestCommand: `cd '${root.replace(/'/g, `'\\''`)}' && claude "${item.kind === 'prepare' ? 'design' : 'interlude'} ingest of ${item.file}"`,
+      })),
       steps: STUDIO_STEPS.map(step => {
         const state = loadStep(step.n);
         return { n: step.n, id: step.id, title: step.title, kind: step.kind, status: state.status, usage: state.usage };

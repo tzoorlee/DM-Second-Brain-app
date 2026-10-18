@@ -12,6 +12,7 @@ import {
   StudioModel,
   TurnParams,
 } from '../src/app/utils/studio-ai';
+import { createItem } from '../src/app/utils/studio-items';
 import { loadStep, saveStep } from '../src/app/utils/studio-state';
 import { isolateEnv, makeCampaign, makeTempDir, writePage } from './helpers';
 
@@ -214,6 +215,28 @@ describe('Studio AI', () => {
     const context = buildContext(7, 'Aldric');
     expect(context).toContain('wiki/index.md');
     expect(context).toContain('killed in session 14');
+  });
+
+  it('briefs an interlude about per-fact knowledge and lets it edit any section', async () => {
+    fs.mkdirSync(path.join(root, 'raw', 'sessions'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'raw', 'sessions', 'session-01.md'), '# 1');
+    const item = createItem('interlude', 'Ashford burns', { dateInWorld: '1492-Flamerule-03', afterSession: 'session-01' });
+    const text = buildSystem(item.n).map(b => b.text).join('\n');
+    expect(text).toContain('PCs know');
+    expect(text).toContain('any of its "## " sections');
+  });
+
+  it('puts written interludes in the context, and leaves the item\'s own file out of its check', () => {
+    fs.mkdirSync(path.join(root, 'raw', 'interludes'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'raw', 'interludes', '2027-01-01-old.md'), '# Old\n- The mill burned.\n');
+    expect(buildContext(2, 'x')).toContain('The mill burned.');
+    fs.mkdirSync(path.join(root, 'raw', 'sessions'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'raw', 'sessions', 'session-01.md'), '# 1');
+    const item = createItem('prepare', 'North', {});
+    fs.mkdirSync(path.join(root, 'raw', 'worldbuilding'), { recursive: true });
+    fs.writeFileSync(path.join(root, item.file), '# North\n- Old idea.\n');
+    expect(buildContext(item.n, 'x', true)).not.toContain('Old idea.');
+    expect(buildContext(item.n, 'x', false)).toContain('Old idea.');
   });
 
   it('caches the system prompt at its last block', () => {

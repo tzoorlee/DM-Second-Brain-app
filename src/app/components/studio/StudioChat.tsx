@@ -36,7 +36,11 @@ export default function StudioChat({ step, aiAvailable, published, onChanged, on
   const [error, setError] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ block: 'end' }), [step, pending]);
+  // Braces matter: scrollIntoView returns a promise in recent browsers, and an effect
+  // must not return anything but a cleanup function
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'end' });
+  }, [step, pending]);
 
   if (!aiAvailable) {
     return (

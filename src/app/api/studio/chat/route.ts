@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { runChatTurn } from '../../../utils/studio-ai';
-import { getStudioModel } from '../../../utils/studio-model';
+import { modelForStep } from '../../../utils/studio-model';
 import { getCampaignRoot } from '../../../utils/vault';
 import { BadRequest, parseStep, readJson, studioError } from '../common';
 
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const n = parseStep(body.n);
     if (typeof body.message !== 'string' || !body.message.trim()) throw new BadRequest('Write a message.');
-    const model = getStudioModel();
+    const model = modelForStep(n);
     if (!(await model.available())) {
       return NextResponse.json({ error: 'The AI is not available: set ANTHROPIC_API_KEY or run `ant auth login`.' }, { status: 503 });
     }

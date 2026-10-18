@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { getEntity, searchEntities } from './search';
-import { COHERENCE_SYSTEM, STEP_BRIEFS, STUDIO_ROLE } from './studio-prompts';
+import { COHERENCE_SYSTEM, ITEM_BRIEFS, STEP_BRIEFS, STUDIO_ROLE } from './studio-prompts';
 import { Inconsistency, loadStep, Proposal, saveStep, StepState } from './studio-state';
 import { campaignHasSessions, getStep, readStepContent, WORLD_BIBLE, WORLDBUILDING_TOPICS, writeStepContent } from './studio-steps';
 import { getCampaignRoot } from './vault';
@@ -88,7 +88,7 @@ export function ownedSections(n: number): string[] | null {
   const step = getStep(n);
   if (step.kind === 'worldbible') return step.headings!;
   if (step.kind === 'worldbuilding') return [...WORLDBUILDING_TOPICS];
-  if (step.kind === 'file') return null;
+  if (step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude') return null;
   return [];
 }
 
@@ -108,10 +108,11 @@ function worldType(): 'homebrew' | 'published' {
 
 export function buildSystem(n: number): TextBlockParam[] {
   const step = getStep(n);
-  const brief = STEP_BRIEFS[n];
+  const item = step.kind === 'prepare' || step.kind === 'interlude';
+  const brief = item ? ITEM_BRIEFS[step.kind as 'prepare' | 'interlude'] : STEP_BRIEFS[n];
   const owned = ownedSections(n);
   const lines = [
-    `Current step: ${n} of 9 — ${step.title}.`,
+    item ? `Current task: ${step.kind === 'prepare' ? 'Prepare' : 'Interlude'} — "${step.title}" (${step.file}).` : `Current step: ${n} of 9 — ${step.title}.`,
     `Goal: ${brief.goal}`,
     owned === null
       ? 'The draft is a whole file: you may propose any of its "## " sections.'
@@ -148,13 +149,20 @@ export function buildContext(n: number, message: string, replacing = false): str
   // Files the step itself rewrites, left out when checking its new draft
   const replaced = (rel: string) =>
     replacing &&
-    ((step.kind === 'file' && rel === step.file) ||
+    (((step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude') && rel === step.file) ||
       (step.kind === 'worldbuilding' && WORLDBUILDING_TOPICS.some(t => rel === `raw/worldbuilding/${t.toLowerCase()}.md`)));
   if (!replaced('raw/house-rules.md')) add('raw/house-rules.md', readIfExists('raw/house-rules.md'));
   const wb = path.join(getCampaignRoot(), 'raw', 'worldbuilding');
   if (fs.existsSync(wb)) {
     for (const f of fs.readdirSync(wb).filter(f => f.endsWith('.md') && f !== 'README.md').sort()) {
       if (!replaced(`raw/worldbuilding/${f}`)) add(`raw/worldbuilding/${f}`, readIfExists(`raw/worldbuilding/${f}`));
+    }
+  }
+  // Interludes are history the DM declared: as binding as sessions
+  const interludes = path.join(getCampaignRoot(), 'raw', 'interludes');
+  if (fs.existsSync(interludes)) {
+    for (const f of fs.readdirSync(interludes).filter(f => f.endsWith('.md') && f !== 'README.md').sort()) {
+      if (!replaced(`raw/interludes/${f}`)) add(`raw/interludes/${f}`, readIfExists(`raw/interludes/${f}`));
     }
   }
   const setting = path.join(getCampaignRoot(), 'raw', 'setting');
@@ -333,7 +341,11 @@ const IssueSchema = z.object({
 
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
-export function createAnthropicModel(): StudioModel {
+// 'setup' for the nine steps (one-off, quality first), 'prep' for preparations and
+// interludes between sessions (frequent, speed first)
+export type StudioMode = 'setup' | 'prep';
+
+export function createAnthropicModel(mode: StudioMode = 'setup'): StudioModel {
   // Created on first use and dropped when the credentials check fails, so a key added
   // to .env.local while the app runs is picked up without a restart
   let client: Anthropic | null = null;
@@ -342,7 +354,8 @@ export function createAnthropicModel(): StudioModel {
     const workspace = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
     return (client ??= new Anthropic(workspace ? { defaultHeaders: { 'anthropic-workspace-id': workspace } } : {}));
   };
-  const name = process.env.STUDIO_MODEL?.trim() || 'claude-opus-5';
+  const name =
+    mode === 'prep' ? process.env.STUDIO_PREP_MODEL?.trim() || 'claude-sonnet-5-5' : process.env.STUDIO_MODEL?.trim() || 'claude-opus-5-5';
   let checked: { at: number; ok: boolean } | null = null;
 
   return {

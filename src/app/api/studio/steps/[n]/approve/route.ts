@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { approveStep } from '../../../../../utils/studio-ai';
-import { getStudioModel } from '../../../../../utils/studio-model';
+import { modelForStep } from '../../../../../utils/studio-model';
 import { loadStep } from '../../../../../utils/studio-state';
 import { readStepContent } from '../../../../../utils/studio-steps';
 import { getCampaignRoot } from '../../../../../utils/vault';
@@ -13,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ n: 
     const n = parseStep((await params).n);
     const body = await readJson(request);
     const state = loadStep(n);
-    const model = getStudioModel();
+    const model = modelForStep(n);
     const result = await approveStep(n, state.draft ?? readStepContent(n), (await model.available()) ? model : null, body.skipCheck === true);
     return NextResponse.json(result);
   } catch (error) {

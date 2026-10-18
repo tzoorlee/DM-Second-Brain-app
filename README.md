@@ -1,6 +1,6 @@
 # DM-Second-Brain App
 
-![version](https://img.shields.io/badge/version-0.7.0-blue)
+![version](https://img.shields.io/badge/version-0.8.0-blue)
 ![vault format](https://img.shields.io/badge/vault%20format-1-purple)
 
 A local companion app for campaigns built with the
@@ -80,6 +80,7 @@ A campaign declares its format in `dm-second-brain.json` at its root, for exampl
 | 0.5.x       | 1             |
 | 0.6.x       | 1             |
 | 0.7.x       | 1             |
+| 0.8.x       | 1             |
 
 If a campaign has no `dm-second-brain.json` (made before template 0.4.0), the app assumes
 format 1 and shows a small notice. It refuses formats it doesn't know rather than guess,
@@ -105,9 +106,22 @@ an AI partner next to a live draft of the file it writes:
 Works with a published setting too: the steps then help you adapt it and record your
 deviations from the published canon.
 
+**Between sessions**, once `raw/sessions/` has a recap, the Studio adds two more tools:
+
+- **+ Prepare**: new design for the next sessions (a region, a faction, the next adventure),
+  written to a dated file in `raw/worldbuilding/`;
+- **+ Interlude**: what happened off-screen since the last session, written to
+  `raw/interludes/` with its in-world date; the AI helps you say, fact by fact, what the
+  players know.
+
+Both are checked against the wiki (what was played is the strongest constraint). Each shows
+its status — draft, written, ingested — and, once written, the command for the agent's
+ingest. After the agent has ingested one, it is read-only: start a new one to add more.
+
 **AI credentials**: set `ANTHROPIC_API_KEY` in `.env.local`, or run `ant auth login`. With a
 user-level key (`sk-ant-usr…`), also set `ANTHROPIC_WORKSPACE_ID` to the workspace to use. The
-Studio uses `claude-opus-5` (change it with `STUDIO_MODEL`). Each message costs a few cents
+nine steps use `claude-opus-5-5` (`STUDIO_MODEL`); Prepare and Interlude use the faster
+`claude-sonnet-5-5` (`STUDIO_PREP_MODEL`). Each message costs a few cents
 on your Anthropic account; the Studio shows the tokens each step used. Without credentials
 the Studio still works: you write the drafts by hand.
 

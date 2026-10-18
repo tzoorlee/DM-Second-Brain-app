@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { CampaignError } from './campaign-error';
 import { getCampaignRoot } from './vault';
 import { addDeviation, getField, getSections, replaceSections, setField } from './worldbible';
 
-export type StepKind = 'worldbible' | 'file' | 'worldbuilding' | 'srd' | 'summary';
+export type StepKind = 'worldbible' | 'file' | 'worldbuilding' | 'srd' | 'summary' | 'prepare' | 'interlude';
 
 export interface StudioStep {
   n: number;
@@ -33,10 +34,40 @@ export const STUDIO_STEPS: StudioStep[] = [
 
 export const WORLD_BIBLE = 'raw/world-bible.md';
 
+// Preparations and interludes made after play starts. They are numbered from 101 and
+// behave like whole-file steps; studio-items.ts creates them.
+export interface StudioItem {
+  n: number;
+  kind: 'prepare' | 'interlude';
+  title: string;
+  file: string;
+  dateInWorld?: string;
+  afterSession?: string;
+}
+
+export const ITEMS_FILE = '.dm-second-brain/studio/items.json';
+
+export function readItems(): StudioItem[] {
+  try {
+    const items = JSON.parse(fs.readFileSync(path.join(getCampaignRoot(), ITEMS_FILE), 'utf-8'));
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
 export function getStep(n: number): StudioStep {
   const step = STUDIO_STEPS.find(s => s.n === n);
-  if (!step) throw new Error(`There is no step ${n}.`);
-  return step;
+  if (step) return step;
+  const item = n > 100 ? readItems().find(i => i.n === n) : undefined;
+  if (!item) throw new Error(`There is no step ${n}.`);
+  return { n: item.n, id: item.kind, title: item.title, kind: item.kind, file: item.file };
+}
+
+// The agent's log names each source file it ingested (template 0.6.0)
+export function isIngested(file: string): boolean {
+  const log = path.join(getCampaignRoot(), 'wiki', 'log.md');
+  return fs.existsSync(log) && fs.readFileSync(log, 'utf-8').includes(file);
 }
 
 // The only files the Studio may write, relative to the campaign root
@@ -44,6 +75,7 @@ const ALLOWED = [
   /^raw\/world-bible\.md$/,
   /^raw\/house-rules\.md$/,
   /^raw\/worldbuilding\/[a-z0-9-]+\.md$/,
+  /^raw\/interludes\/[a-z0-9-]+\.md$/,
   /^raw\/srd(\/[^/\\]+)+$/,
   /^\.dm-second-brain\/studio\/[a-z0-9-]+\.json$/,
   /^CLAUDE\.md$/,
@@ -95,6 +127,13 @@ export function readStepContent(n: number): string {
     return joinSections(step.headings!.map(h => [h, sections[h]]));
   }
   if (step.kind === 'file') return readRel(step.file!);
+  if (step.kind === 'prepare' || step.kind === 'interlude') {
+    const existing = readRel(step.file!);
+    if (existing) return existing;
+    const item = readItems().find(i => i.n === n)!;
+    const front = item.kind === 'interlude' ? `---\ndate_in_world: "${item.dateInWorld}"\nafter_session: ${item.afterSession}\n---\n\n` : '';
+    return `${front}# ${item.title}\n\n`;
+  }
   if (step.kind === 'worldbuilding') {
     return joinSections(
       WORLDBUILDING_TOPICS.map(topic => [topic, readRel(topicFile(topic)).replace(new RegExp(`^# ${topic}\\n\\n?`), '')]),
@@ -156,7 +195,11 @@ export function writeStepContent(n: number, draft: string): string[] {
     if (n === 1 && updateClaudeConfig(bible)) written.push('CLAUDE.md');
     return written;
   }
-  if (step.kind === 'file') {
+  if (step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude') {
+    // Once the agent has ingested it, a new preparation or interlude is the way to add more
+    if (step.kind !== 'file' && isIngested(step.file!)) {
+      throw new CampaignError(`${step.file} was already ingested by the agent: start a new one to add more.`, 409);
+    }
     writeFileAtomic(resolveInCampaign(step.file!), draft);
     return [step.file!];
   }

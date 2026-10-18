@@ -70,20 +70,42 @@ export default function StudioPage() {
   }
   if (!overview || current === null) return null;
 
-  const info = overview.steps.find(s => s.n === current)!;
-  const fileLabel = info.kind === 'file' ? (current === 5 ? 'raw/house-rules.md' : 'raw/worldbuilding/starting-point.md') : FILE_LABELS[info.kind] ?? '';
+  const item = overview.items.find(i => i.n === current);
+  const info = item
+    ? { n: item.n, title: item.title, kind: item.kind }
+    : overview.steps.find(s => s.n === current) ?? overview.steps[0];
+  const fileLabel = item
+    ? item.file
+    : info.kind === 'file'
+      ? (current === 5 ? 'raw/house-rules.md' : 'raw/worldbuilding/starting-point.md')
+      : FILE_LABELS[info.kind] ?? '';
+  const readOnly = item?.status === 'ingested';
 
   let right: ReactNode = null;
   if (info.kind === 'srd') right = <SrdStep current={overview.rulesEdition} onChanged={() => refresh()} />;
   else if (info.kind === 'summary') right = <SummaryStep overview={overview} onChanged={() => refresh()} />;
-  else if (step) right = <DraftPanel key={step.n} step={step} title={`${current}. ${info.title}`} fileLabel={fileLabel} onChanged={() => refresh()} />;
+  else if (step) {
+    right = (
+      <DraftPanel
+        key={step.n}
+        step={step}
+        title={item ? `${item.kind === 'prepare' ? 'Prepare' : 'Interlude'}: ${item.title}` : `${current}. ${info.title}`}
+        fileLabel={fileLabel}
+        readOnly={readOnly}
+        ingestCommand={item && item.status !== 'draft' ? item.ingestCommand : undefined}
+        onChanged={() => refresh()}
+      />
+    );
+  }
 
   return (
     <div className={`studio tab-${tab}`}>
       <header className="studio-header glass">
         <Link href="/" className="studio-back">← Dashboard</Link>
         <h1>World Studio</h1>
-        <span className="studio-model">{overview.aiAvailable ? `AI: ${overview.model}` : 'AI not available'}</span>
+        <span className="studio-model">
+          {overview.aiAvailable ? `AI: ${item ? overview.prepModel : overview.model}` : 'AI not available'}
+        </span>
       </header>
       <nav className="studio-tabs glass" aria-label="Panels">
         {(['steps', 'chat', 'draft'] as const).map(t => (
@@ -93,10 +115,19 @@ export default function StudioPage() {
         ))}
       </nav>
       <div className="studio-col studio-col-steps glass">
-        <StepList steps={overview.steps} current={current} onSelect={select} />
+        <StepList
+          steps={overview.steps}
+          items={overview.items}
+          current={current}
+          hasSessions={overview.hasSessions}
+          latestSession={overview.latestSession}
+          onSelect={select}
+        />
       </div>
       <div className="studio-col studio-col-chat glass">
-        {step && info.kind !== 'srd' ? (
+        {readOnly ? (
+          <p className="studio-nochat">The agent already ingested this file, so it is read-only here. To add more, start a new preparation or interlude.</p>
+        ) : step && info.kind !== 'srd' ? (
           <StudioChat step={step} aiAvailable={overview.aiAvailable} published={overview.published} onChanged={() => refresh()} onOpenStep={select} />
         ) : (
           <p className="studio-nochat">{info.kind === 'srd' ? 'This step needs no chat: choose on the right.' : ''}</p>
