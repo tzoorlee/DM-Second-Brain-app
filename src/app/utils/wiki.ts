@@ -24,8 +24,10 @@ export interface Entity {
   body: string;
 }
 
+// The campaign vault defaults to the folder above dashboard/. Set VAULT_PATH
+// (absolute, or relative to dashboard/) to point at a campaign stored elsewhere.
 export function getCampaignRoot(): string {
-  return path.resolve(process.cwd(), '..');
+  return path.resolve(process.cwd(), process.env.VAULT_PATH?.trim() || '..');
 }
 
 export function parseMarkdown(content: string): { frontmatter: EntityFrontmatter; body: string } {
