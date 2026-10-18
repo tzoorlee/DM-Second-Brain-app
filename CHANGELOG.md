@@ -7,6 +7,12 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.6.1] - 2026-10-18
+
+### Changed
+
+- New campaigns use template `v0.5.1` (clearer rules in `TEMPLATES.md` and `CLAUDE.md`; vault format still 1).
+
 ## [0.6.0] - 2026-10-18
 
 ### Added

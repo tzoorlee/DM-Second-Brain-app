@@ -34,7 +34,7 @@ describe('template archive', () => {
   });
 
   it('templateArchiveUrl', () => {
-    expect(templateArchiveUrl()).toBe('https://codeload.github.com/tzoorlee/DM-Second-Brain/tar.gz/refs/tags/v0.5.0');
+    expect(templateArchiveUrl()).toBe('https://codeload.github.com/tzoorlee/DM-Second-Brain/tar.gz/refs/tags/v0.5.1');
   });
 });
 
