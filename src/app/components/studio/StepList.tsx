@@ -59,7 +59,7 @@ export default function StepList({ steps, items, current, hasSessions, latestSes
             >
               <span className="studio-step-mark" aria-label={step.status}>{MARK[step.status]}</span>
               <span className="studio-step-title">
-                {step.n}. {step.title}
+                {step.n === 0 ? step.title : `${step.n}. ${step.title}`}
                 {tokens(step.usage) && <span className="studio-step-usage">{tokens(step.usage)}</span>}
               </span>
             </button>

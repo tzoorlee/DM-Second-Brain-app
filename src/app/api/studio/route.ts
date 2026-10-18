@@ -4,7 +4,8 @@ import { getStudioModel } from '../../utils/studio-model';
 import { loadStep } from '../../utils/studio-state';
 import fs from 'fs';
 import path from 'path';
-import { campaignHasSessions, STUDIO_STEPS, WORLD_BIBLE } from '../../utils/studio-steps';
+import { inheritedFrom } from '../../utils/studio-inherited';
+import { campaignHasSessions, studioSteps, WORLD_BIBLE } from '../../utils/studio-steps';
 import { getField } from '../../utils/worldbible';
 import { getCampaignRoot } from '../../utils/vault';
 import { studioError } from './common';
@@ -32,7 +33,11 @@ export async function GET() {
         usage: loadStep(item.n).usage,
         ingestCommand: `cd '${root.replace(/'/g, `'\\''`)}' && claude "${item.kind === 'prepare' ? 'design' : 'interlude'} ingest of ${item.file}"`,
       })),
-      steps: STUDIO_STEPS.map(step => {
+      inheritedFrom: inheritedFrom(),
+      inheritedIngestCommand: inheritedFrom()
+        ? `cd '${root.replace(/'/g, `'\\''`)}' && claude "ingest the inherited history in raw/setting/from-${inheritedFrom()!.id}/"`
+        : null,
+      steps: studioSteps().map(step => {
         const state = loadStep(step.n);
         return { n: step.n, id: step.id, title: step.title, kind: step.kind, status: state.status, usage: state.usage };
       }),

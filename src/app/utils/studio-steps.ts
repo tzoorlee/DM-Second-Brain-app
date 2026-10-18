@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { CampaignError } from './campaign-error';
+import { inheritedFrom } from './studio-inherited';
 import { getCampaignRoot } from './vault';
 import { addDeviation, getField, getSections, replaceSections, setField } from './worldbible';
 
-export type StepKind = 'worldbible' | 'file' | 'worldbuilding' | 'srd' | 'summary' | 'prepare' | 'interlude';
+export type StepKind = 'worldbible' | 'file' | 'worldbuilding' | 'srd' | 'summary' | 'prepare' | 'interlude' | 'inherited';
 
 export interface StudioStep {
   n: number;
@@ -34,6 +35,13 @@ export const STUDIO_STEPS: StudioStep[] = [
 
 export const WORLD_BIBLE = 'raw/world-bible.md';
 
+// Step 0, only in a campaign made from the world of another
+export const INHERITED_STEP: StudioStep = {
+  n: 0, id: 'inherited', title: 'Inherited world', kind: 'inherited', file: 'raw/worldbuilding/inherited-world.md',
+};
+
+export const studioSteps = (): StudioStep[] => (inheritedFrom() ? [INHERITED_STEP, ...STUDIO_STEPS] : STUDIO_STEPS);
+
 // Preparations and interludes made after play starts. They are numbered from 101 and
 // behave like whole-file steps; studio-items.ts creates them.
 export interface StudioItem {
@@ -59,6 +67,7 @@ export function readItems(): StudioItem[] {
 export function getStep(n: number): StudioStep {
   const step = STUDIO_STEPS.find(s => s.n === n);
   if (step) return step;
+  if (n === 0 && inheritedFrom()) return INHERITED_STEP;
   const item = n > 100 ? readItems().find(i => i.n === n) : undefined;
   if (!item) throw new Error(`There is no step ${n}.`);
   return { n: item.n, id: item.kind, title: item.title, kind: item.kind, file: item.file };
@@ -127,6 +136,9 @@ export function readStepContent(n: number): string {
     return joinSections(step.headings!.map(h => [h, sections[h]]));
   }
   if (step.kind === 'file') return readRel(step.file!);
+  if (step.kind === 'inherited') {
+    return readRel(step.file!) || `# Inherited world\n\n## When\n- (when this campaign takes place, compared with "${inheritedFrom()?.title}")\n\n## What changed\n- (what is different now)\n`;
+  }
   if (step.kind === 'prepare' || step.kind === 'interlude') {
     const existing = readRel(step.file!);
     if (existing) return existing;
@@ -195,9 +207,9 @@ export function writeStepContent(n: number, draft: string): string[] {
     if (n === 1 && updateClaudeConfig(bible)) written.push('CLAUDE.md');
     return written;
   }
-  if (step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude') {
+  if (step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude' || step.kind === 'inherited') {
     // Once the agent has ingested it, a new preparation or interlude is the way to add more
-    if (step.kind !== 'file' && isIngested(step.file!)) {
+    if ((step.kind === 'prepare' || step.kind === 'interlude') && isIngested(step.file!)) {
       throw new CampaignError(`${step.file} was already ingested by the agent: start a new one to add more.`, 409);
     }
     writeFileAtomic(resolveInCampaign(step.file!), draft);

@@ -7,7 +7,7 @@ export interface StepSummary {
   n: number;
   id: string;
   title: string;
-  kind: 'worldbible' | 'file' | 'worldbuilding' | 'srd' | 'summary';
+  kind: 'worldbible' | 'file' | 'worldbuilding' | 'srd' | 'summary' | 'inherited';
   status: StepState['status'];
   usage: StepState['usage'];
 }
@@ -29,6 +29,8 @@ export interface StudioOverview {
   model: string;
   prepModel: string;
   latestSession: string | null;
+  inheritedFrom: { id: string; title: string } | null;
+  inheritedIngestCommand: string | null;
   items: ItemSummary[];
   hasSessions: boolean;
   published: boolean;

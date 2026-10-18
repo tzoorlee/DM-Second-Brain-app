@@ -7,6 +7,14 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.9.0] - 2026-10-18
+
+### Added
+
+- **New campaign from the world of another**: "Start from: The world of …" in the new-campaign form. The world (world bible with the new name, setting, SRD, worldbuilding, and optionally the house rules) is copied; the old wiki becomes history in `raw/setting/from-<id>/`; sessions, interludes and the old campaign stay as they are.
+- **Inherited world** step at the top of the World Studio for such campaigns: when the new campaign takes place and what changed, with the inherited history in the AI's context. The steps the copy already covers start approved; the summary adds the command to ingest the inherited history.
+- `POST /api/campaigns` accepts `from` and `copyHouseRules`.
+
 ## [0.8.0] - 2026-10-18
 
 ### Added

@@ -12,6 +12,7 @@ import { StepWithDraft, StudioOverview, studioApi } from '../components/studio/a
 type Tab = 'steps' | 'chat' | 'draft';
 
 const FILE_LABELS: Record<string, string> = {
+  inherited: 'raw/worldbuilding/inherited-world.md',
   worldbible: 'raw/world-bible.md',
   worldbuilding: 'raw/worldbuilding/',
 };
@@ -89,7 +90,7 @@ export default function StudioPage() {
       <DraftPanel
         key={step.n}
         step={step}
-        title={item ? `${item.kind === 'prepare' ? 'Prepare' : 'Interlude'}: ${item.title}` : `${current}. ${info.title}`}
+        title={item ? `${item.kind === 'prepare' ? 'Prepare' : 'Interlude'}: ${item.title}` : current === 0 ? info.title : `${current}. ${info.title}`}
         fileLabel={fileLabel}
         readOnly={readOnly}
         ingestCommand={item && item.status !== 'draft' ? item.ingestCommand : undefined}

@@ -11,6 +11,10 @@ export default function CampaignPicker({ info, focusNewCampaign = false }: { inf
   const [error, setError] = useState<{ where: 'list' | 'form'; message: string } | null>(null);
   // Set after a campaign is created: offer the World Studio before the dashboard
   const [created, setCreated] = useState(false);
+  // '' = the template's empty world, or the id of a campaign whose world to reuse
+  const [from, setFrom] = useState('');
+  const [copyHouseRules, setCopyHouseRules] = useState(true);
+  const worlds = info.campaigns.filter(c => c.supported);
 
   const send = async (url: string, body: object, where: 'list' | 'form', key: string) => {
     setPending(key);
@@ -37,7 +41,7 @@ export default function CampaignPicker({ info, focusNewCampaign = false }: { inf
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || pending) return;
-    send('/api/campaigns', { name }, 'form', 'create');
+    send('/api/campaigns', from ? { name, from, copyHouseRules } : { name }, 'form', 'create');
   };
 
   if (created) {
@@ -98,7 +102,30 @@ export default function CampaignPicker({ info, focusNewCampaign = false }: { inf
             {pending === 'create' ? 'Creating…' : 'Create'}
           </button>
         </div>
-        <p className="campaign-form-hint">Downloads the DM-Second-Brain template from GitHub into your campaigns folder.</p>
+        {worlds.length > 0 && (
+          <div className="campaign-form-from">
+            <label>
+              Start from
+              <select value={from} onChange={e => setFrom(e.target.value)} disabled={pending !== null}>
+                <option value="">An empty world (template)</option>
+                {worlds.map(c => (
+                  <option key={c.id} value={c.id}>The world of {c.title}</option>
+                ))}
+              </select>
+            </label>
+            {from && (
+              <label className="campaign-form-check">
+                <input type="checkbox" checked={copyHouseRules} onChange={e => setCopyHouseRules(e.target.checked)} disabled={pending !== null} />
+                Also copy the house rules
+              </label>
+            )}
+          </div>
+        )}
+        <p className="campaign-form-hint">
+          {from
+            ? 'Downloads the template, then copies the world (world bible, setting, SRD, worldbuilding) and keeps the old campaign’s wiki as history the new players don’t know. Sessions stay behind; the old campaign is not changed.'
+            : 'Downloads the DM-Second-Brain template from GitHub into your campaigns folder.'}
+        </p>
         {error?.where === 'form' && <div className="setup-problem" role="alert">{error.message}</div>}
       </form>
     </div>

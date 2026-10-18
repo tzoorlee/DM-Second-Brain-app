@@ -20,6 +20,14 @@ interface StepBrief {
 }
 
 export const STEP_BRIEFS: Record<number, StepBrief> = {
+  0: {
+    goal: 'This campaign reuses the world of an earlier one, whose history is in raw/setting/from-<id>/. Decide with the DM when this campaign takes place compared with it, and what changed meanwhile. Check every change against that history: it happened. The new players know none of it.',
+    questions: [
+      'Does this campaign run at the same time as the old one, soon after, or generations later?',
+      'What did the old party leave behind: who rules, who died, what changed?',
+      'Which parts of the old story should the new players stumble on?',
+    ],
+  },
   1: {
     goal: 'Set the basics: the campaign name, output language, starting level, the date the campaign starts in the world, and the kind of world (homebrew, published, or a published setting with homebrew additions) with its sources.',
     questions: [

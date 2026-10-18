@@ -1,6 +1,6 @@
 # DM-Second-Brain App
 
-![version](https://img.shields.io/badge/version-0.8.0-blue)
+![version](https://img.shields.io/badge/version-0.9.0-blue)
 ![vault format](https://img.shields.io/badge/vault%20format-1-purple)
 
 A local companion app for campaigns built with the
@@ -54,6 +54,18 @@ from the campaign name; names in other scripts (say "Дракон") get `campaig
 `campaign-2`, ... and keep their title. To version it, run
 `git init` inside it and keep the repository private: `secrets/` is not ignored.
 
+### A new campaign in an old world
+
+To play a new campaign in a world you already built, with other players or years later,
+choose **Start from: The world of …** when you create it. The app downloads the template
+as usual, then copies the world of the other campaign: the world bible (with the new
+name), the setting, the SRD, the worldbuilding and, if you tick the box, the house rules.
+The old campaign's wiki goes to `raw/setting/from-<id>/` as history the new players don't
+know; its sessions and interludes stay behind, and the old campaign is not changed. The
+World Studio then opens on an extra step, **Inherited world**, where you decide with the
+AI when the new campaign takes place and what changed meanwhile. Its summary gives you
+the commands for the design ingest and, if you want, the ingest of the inherited history.
+
 ### A single campaign
 
 To open one campaign folder directly, set `VAULT_PATH` instead. It wins over
@@ -81,6 +93,7 @@ A campaign declares its format in `dm-second-brain.json` at its root, for exampl
 | 0.6.x       | 1             |
 | 0.7.x       | 1             |
 | 0.8.x       | 1             |
+| 0.9.x       | 1             |
 
 If a campaign has no `dm-second-brain.json` (made before template 0.4.0), the app assumes
 format 1 and shows a small notice. It refuses formats it doesn't know rather than guess,
@@ -175,7 +188,8 @@ Campaigns are named by their folder name (the *id*), never by a path.
 - `GET /api/campaigns` returns the mode (`campaigns-dir`, `vault-path` or `unconfigured`),
   the open campaign's id and title, and the campaigns in `CAMPAIGNS_DIR`.
 - `POST /api/campaigns` with `{ "name": "..." }` creates a campaign from the template and
-  opens it. `POST /api/campaigns/active` with `{ "id": "..." }` opens another campaign
+  opens it; add `"from": "<id>"` (and `"copyHouseRules": false` to leave the rules out) to
+  start from the world of another campaign. `POST /api/campaigns/active` with `{ "id": "..." }` opens another campaign
   (`404` for an unknown id). Both answer `409` when `VAULT_PATH` is set.
 
 ## Project structure

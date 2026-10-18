@@ -11,6 +11,7 @@ import {
   TEMPLATE_RELEASE,
   VaultMode,
 } from './vault';
+import { copyWorld } from './studio-inherited';
 import { downloadTemplateArchive, extractTemplate } from './template';
 
 import { CampaignError } from './campaign-error';
@@ -159,7 +160,17 @@ function genericCampaignId(dir: string, name: string): string {
 // Downloads the pinned template release into a new campaign folder and opens it.
 // The campaign is built in a .creating-* folder and renamed into place at the end,
 // so a failure never leaves a half-made campaign behind.
-export async function createCampaign(name: string, download: () => Promise<Buffer> = downloadTemplateArchive): Promise<{ id: string }> {
+export interface CreateOptions {
+  // Id of a campaign whose world the new one starts from
+  from?: string;
+  copyHouseRules?: boolean;
+}
+
+export async function createCampaign(
+  name: string,
+  download: () => Promise<Buffer> = downloadTemplateArchive,
+  options: CreateOptions = {},
+): Promise<{ id: string }> {
   const dir = requireCampaignsDir();
   // Line breaks would split the index heading
   const trimmed = name.replace(/\s+/g, ' ').trim();
@@ -168,6 +179,9 @@ export async function createCampaign(name: string, download: () => Promise<Buffe
   const id = campaignIdFromName(trimmed) || genericCampaignId(dir, trimmed);
   if (!id) throw new CampaignError('Use some letters or numbers in the name.', 400);
   const target = path.join(dir, id);
+  const source = options.from === undefined ? null : listCampaigns().find(c => c.id === options.from);
+  if (options.from !== undefined && !source) throw new CampaignError(`There is no campaign "${options.from}" to start from.`, 400);
+  if (source && !source.supported) throw new CampaignError(`"${source.title}" needs a newer version of the app.`, 400);
   const taken = () => new CampaignError(`There is already a campaign folder named "${id}".`, 409);
   if (fs.existsSync(target)) throw taken();
 
@@ -183,6 +197,8 @@ export async function createCampaign(name: string, download: () => Promise<Buffe
     if (!format.ok || !fs.existsSync(path.join(tmp, 'dm-second-brain.json'))) {
       throw new CampaignError(`The template release ${TEMPLATE_RELEASE} uses an unsupported vault format.`, 500);
     }
+
+    if (source) copyWorld(tmp, { id: source.id, root: path.join(dir, source.id), title: source.title }, trimmed, options.copyHouseRules !== false);
 
     const indexPath = path.join(tmp, 'wiki', 'index.md');
     if (fs.existsSync(indexPath)) {

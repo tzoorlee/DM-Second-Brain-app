@@ -1,6 +1,6 @@
 import fs from 'fs';
 import type Anthropic from '@anthropic-ai/sdk';
-import { getStep, resolveInCampaign, STUDIO_STEPS, writeFileAtomic } from './studio-steps';
+import { getStep, resolveInCampaign, studioSteps, writeFileAtomic } from './studio-steps';
 
 // One JSON file per step in .dm-second-brain/studio/, so the DM can stop and resume.
 // Conversations are not canon: they never go in raw/.
@@ -59,5 +59,5 @@ export function saveStep(state: StepState): void {
 }
 
 export function listSteps(): StepState[] {
-  return STUDIO_STEPS.map(s => loadStep(s.n));
+  return studioSteps().map(s => loadStep(s.n));
 }

@@ -160,6 +160,16 @@ describe('Studio API', () => {
     expect((await approve(req({ skipCheck: true }), ctx(n))).status).toBe(409);
   });
 
+  it('lists the inherited step first in a campaign made from another world', async () => {
+    fs.mkdirSync(path.join(root, '.dm-second-brain', 'studio'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.dm-second-brain', 'studio', 'inherited.json'), '{"id":"silverbrook","title":"Silverbrook Campaign"}');
+    const body = await (await getStudio()).json();
+    expect(body.steps[0]).toMatchObject({ n: 0, id: 'inherited', title: 'Inherited world' });
+    expect(body.inheritedFrom).toEqual({ id: 'silverbrook', title: 'Silverbrook Campaign' });
+    expect(body.inheritedIngestCommand).toContain('raw/setting/from-silverbrook/');
+    expect((await getStepRoute(new Request('http://x'), ctx(0))).status).toBe(200);
+  });
+
   it('rejects a bad step and answers 409 without a campaign', async () => {
     expect((await getStepRoute(new Request('http://x'), ctx('12'))).status).toBe(400);
     delete process.env.VAULT_PATH;
