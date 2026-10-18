@@ -105,7 +105,8 @@ an AI partner next to a live draft of the file it writes:
 Works with a published setting too: the steps then help you adapt it and record your
 deviations from the published canon.
 
-**AI credentials**: set `ANTHROPIC_API_KEY` in `.env.local`, or run `ant auth login`. The
+**AI credentials**: set `ANTHROPIC_API_KEY` in `.env.local`, or run `ant auth login`. With a
+user-level key (`sk-ant-usr…`), also set `ANTHROPIC_WORKSPACE_ID` to the workspace to use. The
 Studio uses `claude-opus-5` (change it with `STUDIO_MODEL`). Each message costs a few cents
 on your Anthropic account; the Studio shows the tokens each step used. Without credentials
 the Studio still works: you write the drafts by hand.

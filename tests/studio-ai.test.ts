@@ -30,6 +30,7 @@ const toolUse = (id: string, name: string, input: unknown) => ({ type: 'tool_use
 class FakeModel implements StudioModel {
   name = 'fake';
   calls: TurnParams[] = [];
+  coherencePrompts: string[] = [];
   constructor(
     private replies: ((onText: (t: string) => void) => Anthropic.Beta.Messages.BetaMessage)[],
     private issues: IssueInput[] = [],
@@ -40,7 +41,8 @@ class FakeModel implements StudioModel {
     if (!reply) throw new Error('no scripted reply');
     return reply(onText);
   }
-  async checkCoherence() {
+  async checkCoherence(_system: string, prompt: string) {
+    this.coherencePrompts.push(prompt);
     return this.issues;
   }
   async available() {
@@ -161,6 +163,23 @@ describe('Studio AI', () => {
     expect(second).toEqual({ written: ['raw/world-bible.md'] });
     expect(loadStep(4).status).toBe('approved');
     expect(fs.readFileSync(path.join(root, 'raw', 'world-bible.md'), 'utf-8')).toContain('- Hard consonants.');
+  });
+
+  it('the approval check does not compare a step with the old text of its own sections', async () => {
+    const model = new FakeModel([], []);
+    await approveStep(4, '## Naming Conventions\n- Hard consonants.\n', model, false);
+    const prompt = model.coherencePrompts[0];
+    expect(prompt).toContain('- Hard consonants.');
+    expect(prompt).not.toContain('- (names)');
+    expect(prompt).toContain('- (tone)');
+  });
+
+  it('the approval check leaves out the file a whole-file step replaces', async () => {
+    fs.writeFileSync(path.join(root, 'raw', 'house-rules.md'), '# House Rules\n- Old crit rule.\n');
+    const model = new FakeModel([], []);
+    await approveStep(5, '# House Rules\n- New crit rule.\n', model, false);
+    expect(model.coherencePrompts[0]).not.toContain('Old crit rule');
+    expect(model.coherencePrompts[0]).toContain('New crit rule');
   });
 
   it('approval without a model writes directly', async () => {

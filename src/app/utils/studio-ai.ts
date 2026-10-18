@@ -131,14 +131,31 @@ const MAX_PAGE_CHARS = 4000;
 
 // The campaign files the model reasons with. Once play has started, the wiki pages
 // that match the message join them: established pages are the strongest constraint.
-export function buildContext(n: number, message: string): string {
+// With `replacing`, the step's own world-bible sections are left out: the new draft
+// replaces them, so comparing it with their old text would only find false contradictions.
+export function buildContext(n: number, message: string, replacing = false): string {
   const parts: string[] = [];
   const add = (rel: string, text: string) => text.trim() && parts.push(`### ${rel}\n${text.trim()}`);
-  add(WORLD_BIBLE, readIfExists(WORLD_BIBLE));
-  add('raw/house-rules.md', readIfExists('raw/house-rules.md'));
+  const step = getStep(n);
+  const own = ownedSections(n);
+  const bible = readIfExists(WORLD_BIBLE);
+  add(
+    WORLD_BIBLE,
+    replacing && own?.length && step.kind === 'worldbible'
+      ? replaceSections(bible, Object.fromEntries(own.map(h => [h, '(replaced by the new draft)\n\n'])))
+      : bible,
+  );
+  // Files the step itself rewrites, left out when checking its new draft
+  const replaced = (rel: string) =>
+    replacing &&
+    ((step.kind === 'file' && rel === step.file) ||
+      (step.kind === 'worldbuilding' && WORLDBUILDING_TOPICS.some(t => rel === `raw/worldbuilding/${t.toLowerCase()}.md`)));
+  if (!replaced('raw/house-rules.md')) add('raw/house-rules.md', readIfExists('raw/house-rules.md'));
   const wb = path.join(getCampaignRoot(), 'raw', 'worldbuilding');
   if (fs.existsSync(wb)) {
-    for (const f of fs.readdirSync(wb).filter(f => f.endsWith('.md') && f !== 'README.md').sort()) add(`raw/worldbuilding/${f}`, readIfExists(`raw/worldbuilding/${f}`));
+    for (const f of fs.readdirSync(wb).filter(f => f.endsWith('.md') && f !== 'README.md').sort()) {
+      if (!replaced(`raw/worldbuilding/${f}`)) add(`raw/worldbuilding/${f}`, readIfExists(`raw/worldbuilding/${f}`));
+    }
   }
   const setting = path.join(getCampaignRoot(), 'raw', 'setting');
   if (fs.existsSync(setting)) {
@@ -269,7 +286,7 @@ export async function approveStep(
   const step = getStep(n);
   const state = loadStep(n);
   if (model && !skipCheck && step.kind !== 'srd') {
-    const prompt = `NEW DRAFT (step ${n}: ${step.title})\n${draft}\n\nAPPROVED FILES AND ESTABLISHED WIKI\n${buildContext(n, draft)}`;
+    const prompt = `NEW DRAFT (step ${n}: ${step.title})\n${draft}\n\nAPPROVED FILES AND ESTABLISHED WIKI\n${buildContext(n, draft, true)}`;
     const issues = (await model.checkCoherence(COHERENCE_SYSTEM, prompt)).map(toInconsistency);
     if (issues.length) {
       saveStep({ ...state, draft, inconsistencies: [...state.inconsistencies.filter(i => i.status !== 'open'), ...issues] });
@@ -302,14 +319,21 @@ const IssueSchema = z.object({
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
 export function createAnthropicModel(): StudioModel {
-  const client = new Anthropic();
+  // Created on first use and dropped when the credentials check fails, so a key added
+  // to .env.local while the app runs is picked up without a restart
+  let client: Anthropic | null = null;
+  // User-level keys (sk-ant-usr…) aren't tied to a workspace: name it with ANTHROPIC_WORKSPACE_ID
+  const api = () => {
+    const workspace = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
+    return (client ??= new Anthropic(workspace ? { defaultHeaders: { 'anthropic-workspace-id': workspace } } : {}));
+  };
   const name = process.env.STUDIO_MODEL?.trim() || 'claude-opus-5';
   let checked: { at: number; ok: boolean } | null = null;
 
   return {
     name,
     async streamTurn({ system, messages, tools }, onText) {
-      const stream = client.beta.messages.stream({
+      const stream = api().beta.messages.stream({
         model: name,
         max_tokens: 64000,
         betas: [FALLBACK_BETA],
@@ -323,7 +347,7 @@ export function createAnthropicModel(): StudioModel {
       return stream.finalMessage();
     },
     async checkCoherence(system, prompt) {
-      const response = await client.beta.messages.parse({
+      const response = await api().beta.messages.parse({
         model: name,
         max_tokens: 16000,
         betas: [FALLBACK_BETA],
@@ -337,11 +361,13 @@ export function createAnthropicModel(): StudioModel {
       return response.parsed_output?.issues ?? [];
     },
     async available() {
-      if (checked && Date.now() - checked.at < 5 * 60_000) return checked.ok;
+      // A success holds for 5 minutes, a failure for 30 seconds
+      if (checked && Date.now() - checked.at < (checked.ok ? 5 * 60_000 : 30_000)) return checked.ok;
       try {
-        await client.models.retrieve(name);
+        await api().models.retrieve(name);
         checked = { at: Date.now(), ok: true };
       } catch {
+        client = null;
         checked = { at: Date.now(), ok: false };
       }
       return checked.ok;
