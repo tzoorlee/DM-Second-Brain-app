@@ -10,13 +10,13 @@ This is the local web-based graphical interface for **Dungeon Master Second Brai
 First, install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Then, run the development server:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to access the dashboard.
