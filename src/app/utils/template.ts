@@ -1,8 +1,6 @@
-import { x as extract } from 'tar';
-import { CampaignError } from './campaign-error';
+import { downloadCapped, extractArchive } from './download';
 import { TEMPLATE_RELEASE, TEMPLATE_REPO } from './vault';
 
-const DOWNLOAD_TIMEOUT_MS = 30_000;
 // The template archive is well under 1 MB; anything this big is not it
 const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 
@@ -25,48 +23,12 @@ export function isAllowedTemplatePath(relativePath: string): boolean {
     : TEMPLATE_FOLDERS.includes(parts[0]);
 }
 
-export async function downloadTemplateArchive(): Promise<Buffer> {
-  const tooLarge = () => new CampaignError('The template download is too large.', 502);
-  try {
-    const res = await fetch(templateArchiveUrl(), { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
-    if (Number(res.headers.get('content-length')) > MAX_DOWNLOAD_BYTES) throw tooLarge();
-
-    // Read in chunks so an oversized body is cut off instead of buffered whole
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    const reader = res.body.getReader();
-    for (let read = await reader.read(); !read.done; read = await reader.read()) {
-      size += read.value.length;
-      if (size > MAX_DOWNLOAD_BYTES) {
-        await reader.cancel();
-        throw tooLarge();
-      }
-      chunks.push(read.value);
-    }
-    return Buffer.concat(chunks);
-  } catch (error) {
-    if (error instanceof CampaignError) throw error;
-    throw new CampaignError('Could not download the template. Are you offline?', 502);
-  }
+export function downloadTemplateArchive(): Promise<Buffer> {
+  return downloadCapped(templateArchiveUrl(), MAX_DOWNLOAD_BYTES, 'template');
 }
 
 // Extracts the allowed files and folders of a GitHub tarball into dest. Links and
 // anything else that isn't a plain file or folder are skipped.
 export function extractTemplate(archive: Buffer, dest: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const unpack = extract({
-      cwd: dest,
-      strip: 1,
-      // strict turns a corrupt or non-tar download into an error instead of a warning
-      strict: true,
-      // tar calls the filter before stripping, so drop the top folder here
-      filter: (entryPath, entry) =>
-        ('type' in entry && (entry.type === 'File' || entry.type === 'Directory')) &&
-        isAllowedTemplatePath(entryPath.split('/').slice(1).join('/')),
-    });
-    unpack.on('error', reject);
-    unpack.on('close', () => resolve());
-    unpack.end(archive);
-  });
+  return extractArchive(archive, dest, rel => isAllowedTemplatePath(rel));
 }

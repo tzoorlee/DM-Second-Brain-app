@@ -79,3 +79,18 @@ export function writePage(root: string, rel: string, frontmatter: Record<string,
   const yaml = Object.entries(frontmatter).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n');
   fs.writeFileSync(file, `---\n${yaml}\n---\n\n${body}\n`);
 }
+
+// A gzipped tarball with everything inside one top folder, like GitHub's archives.
+// links maps a link path to its target.
+export async function makeArchive(top: string, files: Record<string, string>, links: Record<string, string> = {}): Promise<Buffer> {
+  const { c } = await import('tar');
+  const cwd = makeTempDir();
+  for (const [rel, content] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(cwd, top, rel)), { recursive: true });
+    fs.writeFileSync(path.join(cwd, top, rel), content);
+  }
+  for (const [rel, target] of Object.entries(links)) fs.symlinkSync(target, path.join(cwd, top, rel));
+  const chunks: Buffer[] = [];
+  for await (const chunk of c({ gzip: true, cwd }, [top])) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
