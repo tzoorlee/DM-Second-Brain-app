@@ -1296,3 +1296,47 @@ button.campaign-switcher[aria-expanded='true'] .campaign-switcher-caret {
   flex-direction: column;
   gap: 6px;
 }
+
+.studio-later-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.studio-later-buttons button {
+  flex: 1;
+}
+
+.studio-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.studio-item-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.studio-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.studio-step.ingested .studio-step-mark {
+  color: var(--success);
+}
+
+.studio-step.written .studio-step-mark {
+  color: var(--accent-gold);
+}
+
+.studio-ingest p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}

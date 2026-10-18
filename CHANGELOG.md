@@ -7,6 +7,21 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.8.0] - 2026-10-18
+
+### Added
+
+- **+ Prepare** and **+ Interlude** in the World Studio, once the campaign has a session: new design in a dated `raw/worldbuilding/` file, or what happened off-screen in `raw/interludes/` (with `date_in_world` and `after_session`). Each shows draft / written / ingested, the command for the agent's ingest, and becomes read-only once the agent has ingested it.
+- Written interludes are part of the AI's context, as history.
+
+### Changed
+
+- The nine steps use Claude Opus 5.5 (`STUDIO_MODEL`); Prepare and Interlude use Claude Sonnet 5.5 (`STUDIO_PREP_MODEL`).
+
+### Fixed
+
+- The Studio chat could reload the page in recent browsers (an effect returned a promise), losing the answer being written.
+
 ## [0.7.0] - 2026-10-18
 
 ### Added

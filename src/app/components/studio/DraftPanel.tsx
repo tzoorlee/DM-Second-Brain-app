@@ -9,12 +9,16 @@ interface DraftPanelProps {
   step: StepWithDraft;
   title: string;
   fileLabel: string;
+  // Ingested preparations and interludes can't change any more
+  readOnly?: boolean;
+  // Shown for written preparations and interludes
+  ingestCommand?: string;
   onChanged: () => void;
 }
 
 // The page remounts this panel (key) when the step changes; within a step the
 // panel keeps its own text and takes the server's draft after an accepted proposal
-export default function DraftPanel({ step, title, fileLabel, onChanged }: DraftPanelProps) {
+export default function DraftPanel({ step, title, fileLabel, readOnly = false, ingestCommand, onChanged }: DraftPanelProps) {
   const [text, setText] = useState(step.draft);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -102,10 +106,18 @@ export default function DraftPanel({ step, title, fileLabel, onChanged }: DraftP
         onChange={e => edit(e.target.value)}
         onBlur={() => save().catch(err => setResult({ kind: 'error', message: (err as Error).message }))}
         aria-label="Draft text"
+        readOnly={readOnly}
         spellCheck
       />
 
-      <div className="studio-approve">
+      {ingestCommand && (
+        <div className="studio-ingest">
+          <p>{readOnly ? 'Ingested by the agent.' : 'Written. To turn it into wiki pages, run:'}</p>
+          {!readOnly && <pre className="studio-command">{ingestCommand}</pre>}
+        </div>
+      )}
+
+      {!readOnly && <div className="studio-approve">
         {result && <p className={`studio-result ${result.kind}`} role="status">{result.message}</p>}
         {(result?.kind === 'issues' || result?.kind === 'error') && (
           <button type="button" className="secondary" onClick={() => approve(true)} disabled={busy}>
@@ -115,7 +127,7 @@ export default function DraftPanel({ step, title, fileLabel, onChanged }: DraftP
         <button type="button" onClick={() => approve(false)} disabled={busy}>
           {busy ? 'Checking…' : step.status === 'approved' && !dirty ? 'Approve again' : 'Approve step'}
         </button>
-      </div>
+      </div>}
     </section>
   );
 }

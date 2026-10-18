@@ -12,10 +12,24 @@ export interface StepSummary {
   usage: StepState['usage'];
 }
 
+// A preparation or interlude (numbered from 101)
+export interface ItemSummary {
+  n: number;
+  kind: 'prepare' | 'interlude';
+  title: string;
+  file: string;
+  status: 'draft' | 'written' | 'ingested';
+  usage: StepState['usage'];
+  ingestCommand: string;
+}
+
 // Answer of GET /api/studio
 export interface StudioOverview {
   aiAvailable: boolean;
   model: string;
+  prepModel: string;
+  latestSession: string | null;
+  items: ItemSummary[];
   hasSessions: boolean;
   published: boolean;
   rulesEdition: string | null;
@@ -35,13 +49,15 @@ const send = (url: string, method: string, body: unknown) =>
   fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 export const studioApi = {
-  overview: () => fetch('/api/studio').then(r => json<StudioOverview>(r)),
-  step: (n: number) => fetch(`/api/studio/steps/${n}`).then(r => json<StepWithDraft>(r)),
+  overview: () => fetch('/api/studio', { cache: 'no-store' }).then(r => json<StudioOverview>(r)),
+  step: (n: number) => fetch(`/api/studio/steps/${n}`, { cache: 'no-store' }).then(r => json<StepWithDraft>(r)),
   update: (n: number, body: Record<string, unknown>) => send(`/api/studio/steps/${n}`, 'PUT', body).then(r => json<StepWithDraft>(r)),
   approve: (n: number, skipCheck = false) =>
     send(`/api/studio/steps/${n}/approve`, 'POST', { skipCheck }).then(r => json<{ written?: string[]; issues?: Inconsistency[] }>(r)),
   fix: (n: number, inconsistencyId: string) => send(`/api/studio/steps/${n}/fix`, 'POST', { inconsistencyId }).then(r => json<{ targetStep: number | null }>(r)),
   srd: (edition: string) => send('/api/studio/srd', 'POST', { edition }).then(r => json<{ files: number }>(r)),
+  createItem: (body: { kind: 'prepare' | 'interlude'; title: string; dateInWorld?: string; afterSession?: string }) =>
+    send('/api/studio/items', 'POST', body).then(r => json<{ n: number }>(r)),
   deviation: (text: string) => send('/api/studio/deviations', 'POST', { text }).then(r => json<{ ok: true }>(r)),
 
   // Streams one chat exchange; calls onEvent for every NDJSON line
