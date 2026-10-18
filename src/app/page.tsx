@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import WikiMarkdown, { WikiInline } from './components/WikiMarkdown';
+import { getCaretCoordinates } from './utils/caret';
 
 interface EntityFrontmatter {
   type?: string;
@@ -27,22 +29,70 @@ interface Entity extends EntitySummary {
   body: string;
 }
 
+type PanelId = 'wiki' | 'sheet' | 'notes';
+
 const TYPE_LABELS: Record<string, string> = {
   npc: 'NPCs',
   pc: 'Player Characters',
   city: 'Cities',
+  'city-history': 'City Histories',
   region: 'Regions',
+  'region-history': 'Region Histories',
+  location: 'Locations',
   dungeon: 'Dungeons',
   faction: 'Factions',
+  'faction-history': 'Faction Histories',
   quest: 'Quests',
   item: 'Items',
   event: 'Events',
   secret: 'Secrets',
+  world: 'World',
 };
+
+const TYPE_COLORS: Record<string, string> = {
+  npc: 'var(--accent-purple)',
+  pc: 'var(--accent-teal)',
+  city: '#ca8a04',
+  region: '#65a30d',
+  location: '#ea580c',
+  dungeon: '#dc2626',
+  faction: '#2563eb',
+  quest: '#e11d48',
+  item: '#d97706',
+  event: '#0891b2',
+  secret: '#db2777',
+  world: '#475569',
+};
+
+// "city-history" pages share their entity's color
+const getTypeColor = (type?: string) =>
+  TYPE_COLORS[type?.toLowerCase().replace(/-history$/, '') ?? ''] ?? 'var(--text-muted)';
+
+const getStatusColor = (status?: string) => {
+  switch (status?.toLowerCase()) {
+    case 'alive':
+    case 'active':
+      return 'var(--success)';
+    case 'dead':
+    case 'destroyed':
+      return 'var(--danger)';
+    case 'completed':
+      return '#60a5fa';
+    default:
+      return 'var(--warning)';
+  }
+};
+
+const getCanonColor = (canon?: string) => (canon === 'established' ? '#60a5fa' : 'var(--accent-gold)');
 
 // Distinct, lowercased values of a frontmatter field across the wiki.
 const distinctValues = (entities: EntitySummary[], field: 'type' | 'status' | 'canon_status') =>
   [...new Set(entities.map(e => e.frontmatter[field]?.toLowerCase()).filter((v): v is string => !!v))].sort();
+
+const fileBaseName = (relativePath: string) => relativePath.split('/').pop()?.replace(/\.md$/, '') ?? '';
+
+// Unsaved session notes survive a reload in this browser
+const DRAFT_KEY = 'dm-second-brain:session-draft';
 
 export default function Dashboard() {
   // Every page visible in the current mode (for wikilinks, autocomplete, filter options)
@@ -54,31 +104,39 @@ export default function Dashboard() {
   const [selectedCanon, setSelectedCanon] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  // Pages left by following wikilinks, for the Back button
+  const [history, setHistory] = useState<string[]>([]);
   const [dmMode, setDmMode] = useState(true);
-  
+  // Which panel is shown when the screen is too narrow for all three
+  const [activePanel, setActivePanel] = useState<PanelId>('wiki');
+
   // Note-taking state
   const [sessionTitle, setSessionTitle] = useState('');
   const [nextSessionNum, setNextSessionNum] = useState<number>(1);
   const [sessionNotes, setSessionNotes] = useState('');
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
-  
+  const [isSaving, setIsSaving] = useState(false);
+  const draftLoaded = useRef(false);
+
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<EntitySummary[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const [suggestionTriggerIndex, setSuggestionTriggerIndex] = useState(-1);
+  const [suggestionStyle, setSuggestionStyle] = useState<React.CSSProperties>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   // Guards against out-of-order responses while the user is typing
   const searchRequestId = useRef(0);
 
-  const fetchNextSessionNum = async () => {
+  const fetchNextSessionNum = async (keepTitle?: string) => {
     try {
       const res = await fetch('/api/session');
       const data = await res.json();
       if (data.nextSessionNum) {
         setNextSessionNum(data.nextSessionNum);
         const padded = String(data.nextSessionNum).padStart(2, '0');
-        setSessionTitle(`Session ${padded} — Untitled`);
+        setSessionTitle(keepTitle || `Session ${padded} — Untitled`);
       }
     } catch (e: unknown) {
       console.error('Failed to load next session number', e);
@@ -93,10 +151,10 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.entities) {
         setAllEntities(data.entities);
-        // Leaving DM view must not keep a now-hidden page on screen
-        setSelectedEntity(prev =>
-          prev && !data.entities.some((e: EntitySummary) => e.relativePath === prev.relativePath) ? null : prev
-        );
+        const visible = new Set(data.entities.map((e: EntitySummary) => e.relativePath));
+        // Leaving DM view must not keep a now-hidden page on screen, or one step "Back"
+        setSelectedEntity(prev => (prev && !visible.has(prev.relativePath) ? null : prev));
+        setHistory(prev => prev.filter(p => visible.has(p)));
       }
     } catch (e: unknown) {
       console.error('Failed to fetch entities', e);
@@ -120,10 +178,32 @@ export default function Dashboard() {
     }
   };
 
-  // Load next session number and the page list on mount
+  // Keep the draft in this browser while notes are unsaved
+  useEffect(() => {
+    if (!draftLoaded.current) return;
+    try {
+      if (sessionNotes.trim()) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ title: sessionTitle, notes: sessionNotes }));
+      } else {
+        localStorage.removeItem(DRAFT_KEY);
+      }
+    } catch {
+      // Storage can be unavailable (private window, blocked site data)
+    }
+  }, [sessionTitle, sessionNotes]);
+
+  // Restore any draft, then load next session number and the page list on mount
   useEffect(() => {
     const init = async () => {
-      await fetchNextSessionNum();
+      let draft: { title?: string; notes?: string } | null = null;
+      try {
+        draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+      } catch {
+        draft = null;
+      }
+      if (draft?.notes) setSessionNotes(draft.notes);
+      draftLoaded.current = true;
+      await fetchNextSessionNum(draft?.notes ? draft.title : undefined);
       await fetchAllEntities();
     };
     init();
@@ -131,8 +211,8 @@ export default function Dashboard() {
   }, []);
 
   // Switching secrets mode changes which pages exist for links and autocomplete
-  const handleToggleDmMode = () => {
-    const nextDmMode = !dmMode;
+  const handleSetDmMode = (nextDmMode: boolean) => {
+    if (nextDmMode === dmMode) return;
     setDmMode(nextDmMode);
     fetchAllEntities(nextDmMode ? 'dm' : 'player');
   };
@@ -144,38 +224,51 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedType, selectedCanon, selectedStatus, dmMode]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+  const hasActiveFilters = searchQuery !== '' || selectedType !== 'all' || selectedCanon !== 'all' || selectedStatus !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedType('all');
+    setSelectedCanon('all');
+    setSelectedStatus('all');
   };
 
-  const handleSelectEntity = async (relativePath: string) => {
+  const loadEntity = async (relativePath: string) => {
     try {
       const res = await fetch(`/api/entity?path=${encodeURIComponent(relativePath)}`);
       const data = await res.json();
       if (!data.error) {
         setSelectedEntity(data);
+        setActivePanel('sheet');
+        return true;
       }
     } catch (e: unknown) {
       console.error('Failed to load entity details', e);
     }
+    return false;
   };
 
-  // Convert raw title or filename target to actual entity filename
-  const handleResolveWikiLink = async (target: string) => {
-    // Clean target (e.g. "Silverbrook" or "silverbrook")
-    const cleanTarget = target.toLowerCase().replace(/\s+/g, '-');
-    
-    // Find matching entity
-    const match = allEntities.find(e => {
-      const nameWithoutExt = e.relativePath.split('/').pop()?.replace('.md', '');
-      return nameWithoutExt === cleanTarget || e.title.toLowerCase() === target.toLowerCase();
-    });
+  // Picking from the list starts a fresh trail
+  const handleSelectEntity = async (relativePath: string) => {
+    if (await loadEntity(relativePath)) setHistory([]);
+  };
 
-    if (match) {
-      handleSelectEntity(match.relativePath);
-    } else {
-      alert(`Could not find wiki page for: "${target}"`);
-    }
+  const handleOpenLink = async (relativePath: string) => {
+    const from = selectedEntity?.relativePath;
+    if (from === relativePath) return;
+    if ((await loadEntity(relativePath)) && from) setHistory(prev => [...prev, from]);
+  };
+
+  const handleBack = async () => {
+    const previous = history[history.length - 1];
+    if (previous && (await loadEntity(previous))) setHistory(prev => prev.slice(0, -1));
+  };
+
+  // Match a [[target]] to a visible page by file name ("elder-maren") or title ("Elder Maren")
+  const resolveWikiLink = (target: string) => {
+    const clean = target.split('#')[0].trim().toLowerCase();
+    const slug = clean.replace(/\s+/g, '-');
+    return allEntities.find(e => fileBaseName(e.relativePath) === slug || e.title.toLowerCase() === clean)?.relativePath;
   };
 
   const handleSaveSession = async () => {
@@ -184,6 +277,7 @@ export default function Dashboard() {
       return;
     }
 
+    setIsSaving(true);
     try {
       const res = await fetch('/api/session', {
         method: 'POST',
@@ -208,6 +302,31 @@ export default function Dashboard() {
       }
     } catch (e: unknown) {
       setSaveStatus({ type: 'error', message: (e as Error).message || 'Server error saving session' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Ctrl/Cmd+S anywhere in the note taker saves the recap
+  const handleNotesKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      if (!isSaving) handleSaveSession();
+    }
+  };
+
+  // Open the suggestion list just below the caret, or above it near the bottom edge
+  const positionSuggestions = (textarea: HTMLTextAreaElement, caretIndex: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const caret = getCaretCoordinates(textarea, caretIndex);
+    const caretTop = textarea.offsetTop + caret.top - textarea.scrollTop;
+    const left = Math.max(8, Math.min(textarea.offsetLeft + caret.left, editor.clientWidth - 236));
+    const listHeight = 200;
+    if (caretTop + caret.lineHeight + listHeight > textarea.offsetTop + textarea.clientHeight) {
+      setSuggestionStyle({ left, bottom: editor.clientHeight - caretTop + 4 });
+    } else {
+      setSuggestionStyle({ left, top: caretTop + caret.lineHeight + 4 });
     }
   };
 
@@ -223,20 +342,20 @@ export default function Dashboard() {
     const lastTrigger = textBeforeCursor.lastIndexOf('[[');
     const lastClosing = textBeforeCursor.lastIndexOf(']]');
 
-    if (lastTrigger !== -1 && lastTrigger > lastClosing) {
+    if (lastTrigger !== -1 && lastTrigger > lastClosing && !textBeforeCursor.slice(lastTrigger).includes('\n')) {
       const searchStr = textBeforeCursor.slice(lastTrigger + 2).toLowerCase();
       setSuggestionTriggerIndex(lastTrigger);
 
-      // Filter entities for autocomplete
-      const filtered = allEntities.filter(ent => 
-        ent.title.toLowerCase().includes(searchStr) || 
-        ent.relativePath.toLowerCase().includes(searchStr)
-      );
+      // Titles that start with what was typed come first
+      const filtered = allEntities
+        .filter(ent => ent.title.toLowerCase().includes(searchStr) || ent.relativePath.toLowerCase().includes(searchStr))
+        .sort((a, b) => Number(b.title.toLowerCase().startsWith(searchStr)) - Number(a.title.toLowerCase().startsWith(searchStr)));
 
       if (filtered.length > 0) {
-        setSuggestions(filtered.slice(0, 5));
+        setSuggestions(filtered.slice(0, 8));
         setShowSuggestions(true);
         setActiveSuggestionIndex(0);
+        positionSuggestions(e.target, lastTrigger);
       } else {
         setShowSuggestions(false);
       }
@@ -265,10 +384,10 @@ export default function Dashboard() {
   const insertSuggestion = (entity: EntitySummary) => {
     const val = sessionNotes;
     const cursorPosition = textareaRef.current?.selectionStart || 0;
-    
+
     // Extract base filename (without path or extension) to link cleanly
-    const baseName = entity.relativePath.split('/').pop()?.replace('.md', '') || entity.title;
-    
+    const baseName = fileBaseName(entity.relativePath) || entity.title;
+
     const before = val.slice(0, suggestionTriggerIndex);
     const after = val.slice(cursorPosition);
     const insertedLink = `[[${baseName}]]`;
@@ -290,142 +409,45 @@ export default function Dashboard() {
   const typeOptions = distinctValues(allEntities, 'type');
   const canonOptions = distinctValues(allEntities, 'canon_status');
   const statusOptions = distinctValues(allEntities, 'status');
-
-  const getEntityBadgeColor = (type?: string) => {
-    switch (type?.toLowerCase()) {
-      case 'npc': return 'var(--accent-purple)';
-      case 'pc': return 'var(--accent-teal)';
-      case 'city': return 'var(--accent-gold)';
-      case 'region': return '#84cc16';
-      case 'dungeon': return '#ef4444';
-      case 'faction': return '#3b82f6';
-      case 'quest': return '#e11d48';
-      case 'item': return '#f59e0b';
-      case 'event': return '#06b6d4';
-      case 'secret': return '#ec4899';
-      default: return 'var(--text-muted)';
-    }
-  };
-
-  // Helper function to render wiki link formatted spans
-  const renderTextContent = (text: string) => {
-    if (!text) return null;
-    
-    // Filter out DM-only secrets if not in DM mode
-    let displayBody = text;
-    if (!dmMode) {
-      // Remove inline DM Secrets sections
-      displayBody = displayBody.replace(/## Secrets \(DM only\)[\s\S]*$/i, '');
-    }
-
-    const lines = displayBody.split('\n');
-    return lines.map((line, idx) => {
-      // Title headers
-      if (line.startsWith('# ')) {
-        return <h1 key={idx} style={{ fontSize: '24px', margin: '16px 0 12px 0', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>{renderInlineWikiLinks(line.substring(2))}</h1>;
-      }
-      if (line.startsWith('## ')) {
-        const isSecretsHeader = line.toLowerCase().includes('secrets (dm only)');
-        if (isSecretsHeader && !dmMode) return null;
-
-        return (
-          <h2 
-            key={idx} 
-            style={{ 
-              fontSize: '18px', 
-              margin: '24px 0 10px 0', 
-              color: isSecretsHeader ? '#ec4899' : 'var(--text-primary)',
-              borderBottom: '1px solid var(--border-color)',
-              paddingBottom: '4px' 
-            }}
-          >
-            {renderInlineWikiLinks(line.substring(3))}
-          </h2>
-        );
-      }
-      if (line.startsWith('### ')) {
-        return <h3 key={idx} style={{ fontSize: '15px', margin: '12px 0 6px 0' }}>{renderInlineWikiLinks(line.substring(4))}</h3>;
-      }
-      // Bullet list items
-      if (line.startsWith('- ')) {
-        return <li key={idx} style={{ marginLeft: '20px', marginBottom: '4px', listStyleType: 'square', color: 'var(--text-secondary)' }}>{renderInlineWikiLinks(line.substring(2))}</li>;
-      }
-      // Blockquotes
-      if (line.startsWith('> ')) {
-        return <blockquote key={idx} style={{ borderLeft: '3px solid var(--accent-purple)', paddingLeft: '12px', color: 'var(--text-muted)', margin: '8px 0', fontStyle: 'italic' }}>{renderInlineWikiLinks(line.substring(2))}</blockquote>;
-      }
-      // Simple paragraph with spacing
-      return <p key={idx} style={{ margin: '6px 0', minHeight: '1.2em', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{renderInlineWikiLinks(line)}</p>;
-    });
-  };
-
-  const renderInlineWikiLinks = (lineText: string) => {
-    const parts = [];
-    let lastIndex = 0;
-    const regex = /\[\[([^\]]+)\]\]/g;
-    let match;
-
-    while ((match = regex.exec(lineText)) !== null) {
-      const matchIndex = match.index;
-      if (matchIndex > lastIndex) {
-        parts.push(lineText.substring(lastIndex, matchIndex));
-      }
-
-      const fullLink = match[1];
-      const pipeIndex = fullLink.indexOf('|');
-      const target = pipeIndex !== -1 ? fullLink.substring(0, pipeIndex) : fullLink;
-      const label = pipeIndex !== -1 ? fullLink.substring(pipeIndex + 1) : fullLink;
-
-      parts.push(
-        <button
-          key={matchIndex}
-          onClick={() => handleResolveWikiLink(target)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--accent-purple)',
-            textDecoration: 'underline',
-            cursor: 'pointer',
-            padding: 0,
-            font: 'inherit',
-            fontWeight: '600',
-            display: 'inline'
-          }}
-          title={`Click to view ${target}`}
-        >
-          {label}
-        </button>
-      );
-
-      lastIndex = regex.lastIndex;
-    }
-
-    if (lastIndex < lineText.length) {
-      parts.push(lineText.substring(lastIndex));
-    }
-
-    return parts.length > 0 ? parts : lineText;
-  };
+  const wordCount = sessionNotes.trim() ? sessionNotes.trim().split(/\s+/).length : 0;
+  const panelClass = (id: PanelId) => `panel glass${activePanel === id ? ' panel-active' : ''}`;
+  const linkProps = { resolveLink: resolveWikiLink, onOpenLink: handleOpenLink };
 
   return (
     <div className="dashboard-grid">
+      {/* Shown only on narrow screens, where one panel fits at a time */}
+      <nav className="mobile-tabs glass" aria-label="Panels">
+        {([['wiki', '📖 Wiki'], ['sheet', '🛡️ Sheet'], ['notes', '✍️ Notes']] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={activePanel === id ? undefined : 'secondary'}
+            aria-pressed={activePanel === id}
+            onClick={() => setActivePanel(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
       {/* COLUMN 1: WIKI BROWSER */}
-      <div className="panel glass">
+      <section className={panelClass('wiki')} aria-label="Campaign wiki">
         <div className="panel-header">
-          <h2 style={{ fontSize: '18px', color: '#eab308' }}>📖 Campaign Wiki</h2>
+          <h2 style={{ fontSize: '18px', color: 'var(--accent-gold)' }}>📖 Campaign Wiki</h2>
         </div>
         <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <input
-              type="text"
+              type="search"
               placeholder="Search lore, characters, cities..."
+              aria-label="Search the wiki"
               value={searchQuery}
-              onChange={handleSearchChange}
-              style={{ marginBottom: '8px' }}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
+              aria-label="Filter by type"
               style={{ fontSize: '12px', padding: '6px' }}
             >
               <option value="all">All Types</option>
@@ -433,10 +455,11 @@ export default function Dashboard() {
                 <option key={type} value={type}>{TYPE_LABELS[type] ?? type}</option>
               ))}
             </select>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <select
                 value={selectedCanon}
                 onChange={(e) => setSelectedCanon(e.target.value)}
+                aria-label="Filter by canon status"
                 style={{ fontSize: '12px', padding: '6px' }}
                 title="prepared = designed, still malleable · established = confirmed in play"
               >
@@ -448,6 +471,7 @@ export default function Dashboard() {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
+                aria-label="Filter by status"
                 style={{ fontSize: '12px', padding: '6px' }}
               >
                 <option value="all">Any Status</option>
@@ -456,140 +480,168 @@ export default function Dashboard() {
                 ))}
               </select>
             </div>
+            <div className="result-meta">
+              <span aria-live="polite">{results.length} {results.length === 1 ? 'page' : 'pages'}</span>
+              {hasActiveFilters && (
+                <button type="button" className="link-button" onClick={clearFilters}>
+                  Clear filters
+                </button>
+              )}
+            </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {results.length === 0 ? (
               <div style={{ color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center', marginTop: '20px' }}>
-                No entities found.
+                {hasActiveFilters ? 'No pages match these filters.' : 'The wiki is empty so far.'}
               </div>
             ) : (
-              results.map((entity) => (
-                <div
-                  key={entity.relativePath}
-                  onClick={() => handleSelectEntity(entity.relativePath)}
-                  className="glass-interactive"
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    background: selectedEntity?.relativePath === entity.relativePath ? 'rgba(147, 51, 234, 0.15)' : 'rgba(255,255,255,0.02)',
-                    borderLeft: `4px solid ${getEntityBadgeColor(entity.frontmatter.type)}`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '600', fontSize: '14px' }}>{entity.title}</span>
-                    <span
-                      style={{
-                        fontSize: '9px',
-                        textTransform: 'uppercase',
-                        padding: '2px 6px',
-                        borderRadius: '12px',
-                        background: getEntityBadgeColor(entity.frontmatter.type),
-                        color: '#fff',
-                        fontWeight: '700'
-                      }}
-                    >
-                      {entity.frontmatter.type || 'unknown'}
+              results.map((entity) => {
+                const { type, status, canon_status: canon } = entity.frontmatter;
+                return (
+                  <button
+                    key={entity.relativePath}
+                    type="button"
+                    onClick={() => handleSelectEntity(entity.relativePath)}
+                    className={`result-item${selectedEntity?.relativePath === entity.relativePath ? ' selected' : ''}`}
+                    style={{ borderLeft: `4px solid ${getTypeColor(type)}` }}
+                  >
+                    <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 600, fontSize: '14px' }}>{entity.title}</span>
+                      <span className="badge" style={{ background: getTypeColor(type), color: '#fff' }}>
+                        {type || 'unknown'}
+                      </span>
                     </span>
-                  </div>
-                  {entity.frontmatter.status && (
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      Status: <span style={{ color: entity.frontmatter.status === 'alive' || entity.frontmatter.status === 'active' ? 'var(--success)' : 'var(--danger)' }}>{entity.frontmatter.status}</span>
-                    </div>
-                  )}
-                </div>
-              ))
+                    {(status || canon) && (
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '6px' }}>
+                        {status && <span style={{ color: getStatusColor(status) }}>{status}</span>}
+                        {status && canon && <span aria-hidden="true">·</span>}
+                        {canon && <span style={{ color: getCanonColor(canon) }}>{canon}</span>}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
-      </div>
+      </section>
 
       {/* COLUMN 2: ENTITY VIEWER */}
-      <div className="panel glass" style={{ minWidth: '400px' }}>
-        <div className="panel-header">
-          <h2 style={{ fontSize: '18px', color: '#a855f7' }}>🛡️ Entity Sheet</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Secrets Mode:</span>
+      <section className={panelClass('sheet')} aria-label="Entity sheet">
+        <div className="panel-header" style={{ gap: '12px', flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: '18px', color: '#c084fc' }}>🛡️ Entity Sheet</h2>
+          <div role="group" aria-label="Secrets mode" style={{ display: 'flex', gap: '4px' }}>
             <button
-              onClick={handleToggleDmMode}
-              style={{
-                fontSize: '11px',
-                padding: '4px 10px',
-                background: dmMode ? 'var(--accent-purple)' : 'rgba(255,255,255,0.05)',
-                color: dmMode ? '#fff' : 'var(--text-secondary)',
-                border: dmMode ? 'none' : '1px solid var(--border-color)',
-                borderRadius: '6px'
-              }}
+              type="button"
+              aria-pressed={dmMode}
+              className={dmMode ? undefined : 'secondary'}
+              onClick={() => handleSetDmMode(true)}
+              style={{ fontSize: '12px', padding: '5px 10px' }}
+              title="Show everything, DM secrets included"
             >
-              {dmMode ? '👁️ DM View (On)' : '🕶️ Player Safe'}
+              👁️ DM View
+            </button>
+            <button
+              type="button"
+              aria-pressed={!dmMode}
+              className={dmMode ? 'secondary' : undefined}
+              onClick={() => handleSetDmMode(false)}
+              style={{ fontSize: '12px', padding: '5px 10px', ...(dmMode ? {} : { background: 'var(--accent-teal)' }) }}
+              title="Hide secrets: safe to share the screen with players"
+            >
+              🕶️ Player Safe
             </button>
           </div>
         </div>
-        <div className="panel-content animate-fade-in" style={{ padding: '24px' }}>
+        {!dmMode && <div className="mode-banner">Player Safe · DM secrets are hidden</div>}
+        <div className="panel-content" style={{ padding: '24px' }}>
           {selectedEntity ? (
-            <div>
+            <article key={selectedEntity.relativePath} className="animate-fade-in">
+              {history.length > 0 && (
+                <button type="button" className="secondary" onClick={handleBack} style={{ fontSize: '12px', padding: '4px 10px', marginBottom: '16px' }}>
+                  ← Back
+                </button>
+              )}
+
               {/* Header Info */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 {selectedEntity.frontmatter.type && (
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', background: getEntityBadgeColor(selectedEntity.frontmatter.type), padding: '2px 8px', borderRadius: '4px', color: '#fff' }}>
+                  <span className="badge" style={{ background: getTypeColor(selectedEntity.frontmatter.type), color: '#fff' }}>
                     {selectedEntity.frontmatter.type}
                   </span>
                 )}
                 {selectedEntity.frontmatter.status && (
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '4px', color: selectedEntity.frontmatter.status === 'alive' ? 'var(--success)' : 'var(--danger)' }}>
+                  <span className="badge badge-outline" style={{ color: getStatusColor(selectedEntity.frontmatter.status) }}>
                     {selectedEntity.frontmatter.status}
                   </span>
                 )}
                 {selectedEntity.frontmatter.canon_status && (
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '4px', color: selectedEntity.frontmatter.canon_status === 'established' ? '#3b82f6' : '#eab308' }}>
+                  <span
+                    className="badge badge-outline"
+                    style={{ color: getCanonColor(selectedEntity.frontmatter.canon_status) }}
+                    title={selectedEntity.frontmatter.canon_status === 'established' ? 'Confirmed in play: fixed' : 'Designed but not played yet: still malleable'}
+                  >
                     {selectedEntity.frontmatter.canon_status}
                   </span>
                 )}
-                {selectedEntity.frontmatter.first_seen && (
-                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                    First seen: {selectedEntity.frontmatter.first_seen}
+                {dmMode && selectedEntity.frontmatter.pg_known === false && (
+                  <span className="badge badge-outline" style={{ color: '#f472b6' }} title="pg_known: false">
+                    Unknown to PCs
                   </span>
                 )}
               </div>
 
               {/* Entity Title */}
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: '800', marginBottom: '16px', color: 'var(--text-primary)' }}>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 800, lineHeight: 1.15, marginBottom: '10px', color: 'var(--text-primary)' }}>
                 {selectedEntity.title}
               </h1>
 
-              {/* Entity Body content */}
-              <div style={{ wordBreak: 'break-word' }}>
-                {renderTextContent(selectedEntity.body)}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                {selectedEntity.frontmatter.location && (
+                  <span>Location: <WikiInline text={String(selectedEntity.frontmatter.location)} {...linkProps} /></span>
+                )}
+                {selectedEntity.frontmatter.faction && (
+                  <span>Faction: <WikiInline text={String(selectedEntity.frontmatter.faction)} {...linkProps} /></span>
+                )}
+                {selectedEntity.frontmatter.first_seen && <span>First seen: {selectedEntity.frontmatter.first_seen}</span>}
+                {selectedEntity.frontmatter.last_updated && <span>Updated: {selectedEntity.frontmatter.last_updated}</span>}
               </div>
-            </div>
+
+              {Array.isArray(selectedEntity.frontmatter.tags) && selectedEntity.frontmatter.tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
+                  {selectedEntity.frontmatter.tags.map(tag => (
+                    <span key={tag} className="tag-chip">#{tag}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Entity Body content */}
+              <WikiMarkdown body={selectedEntity.body} title={selectedEntity.title} dmMode={dmMode} {...linkProps} />
+            </article>
           ) : (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textAlign: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '48px' }}>⚔️</span>
+              <span style={{ fontSize: '48px' }} aria-hidden="true">⚔️</span>
               <h3>No Entity Selected</h3>
-              <p style={{ fontSize: '13px' }}>Click an entity in the browser sidebar<br />or search key terms to begin.</p>
+              <p style={{ fontSize: '13px' }}>Pick a page from the wiki list<br />or search for a name to begin.</p>
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* COLUMN 3: LIVE NOTE TAKER */}
-      <div className="panel glass">
+      <section className={panelClass('notes')} aria-label="Session note taker" onKeyDown={handleNotesKeyDown}>
         <div className="panel-header">
-          <h2 style={{ fontSize: '18px', color: '#ef4444' }}>✍️ Session Note Taker</h2>
-          <span style={{ fontSize: '11px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+          <h2 style={{ fontSize: '18px', color: '#f87171' }}>✍️ Session Note Taker</h2>
+          <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#f87171', fontSize: '11px' }}>
             Next: Session {String(nextSessionNum).padStart(2, '0')}
           </span>
         </div>
         <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase' }}>
-              Session Title
-            </label>
+            <label htmlFor="session-title" className="field-label">Session Title</label>
             <input
+              id="session-title"
               type="text"
               value={sessionTitle}
               onChange={(e) => setSessionTitle(e.target.value)}
@@ -597,85 +649,82 @@ export default function Dashboard() {
             />
           </div>
 
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase' }}>
-              Raw Recap Notes (Markdown)
-            </label>
-            
+          <div ref={editorRef} style={{ flex: 1, minHeight: '220px', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            <label htmlFor="session-notes" className="field-label">Raw Recap Notes (Markdown)</label>
+
             <textarea
+              id="session-notes"
               ref={textareaRef}
               value={sessionNotes}
               onChange={handleTextareaChange}
               onKeyDown={handleTextareaKeyDown}
+              onBlur={() => setShowSuggestions(false)}
+              onScroll={() => setShowSuggestions(false)}
               placeholder="Use [[NPC Name]] or [[Location]] to link entities as you write. Autocomplete will pop up as you type '[['."
+              aria-autocomplete="list"
+              aria-controls="wikilink-suggestions"
               style={{
                 flex: 1,
                 resize: 'none',
-                fontFamily: 'monospace',
+                fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
                 lineHeight: '1.6',
                 padding: '12px'
               }}
             />
 
-            {/* Float Autocomplete suggestions list */}
+            {/* Autocomplete suggestions, anchored at the caret */}
             {showSuggestions && suggestions.length > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '100%',
-                  left: '12px',
-                  width: 'calc(100% - 24px)',
-                  maxHeight: '180px',
-                  background: 'var(--bg-panel)',
-                  border: '1px solid var(--accent-purple)',
-                  borderRadius: '6px',
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 1000,
-                  overflowY: 'auto'
-                }}
-              >
+              <div id="wikilink-suggestions" role="listbox" className="suggestions" style={suggestionStyle}>
                 {suggestions.map((entity, idx) => (
                   <div
                     key={entity.relativePath}
-                    onClick={() => insertSuggestion(entity)}
-                    style={{
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      background: idx === activeSuggestionIndex ? 'rgba(147, 51, 234, 0.2)' : 'transparent',
-                      borderBottom: '1px solid rgba(255,255,255,0.03)',
-                      display: 'flex',
-                      justifyContent: 'space-between'
+                    role="option"
+                    aria-selected={idx === activeSuggestionIndex}
+                    className={`suggestion${idx === activeSuggestionIndex ? ' active' : ''}`}
+                    // mousedown, not click: the textarea must keep focus
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      insertSuggestion(entity);
                     }}
+                    onMouseEnter={() => setActiveSuggestionIndex(idx)}
                   >
-                    <span style={{ fontWeight: '500' }}>{entity.title}</span>
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)', alignSelf: 'center', textTransform: 'uppercase' }}>
+                    <span style={{ fontWeight: 500 }}>{entity.title}</span>
+                    <span style={{ fontSize: '9px', color: getTypeColor(entity.frontmatter.type), alignSelf: 'center', textTransform: 'uppercase', fontWeight: 700 }}>
                       {entity.frontmatter.type}
                     </span>
                   </div>
                 ))}
               </div>
             )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+              <span>{wordCount} {wordCount === 1 ? 'word' : 'words'}{wordCount > 0 && ' · draft kept in this browser'}</span>
+              <span><kbd>[[</kbd> link · <kbd>Ctrl</kbd>+<kbd>S</kbd> save</span>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
+              type="button"
               onClick={handleSaveSession}
+              disabled={isSaving || !sessionNotes.trim()}
               style={{
                 width: '100%',
                 background: 'linear-gradient(135deg, #a855f7 0%, #9333ea 100%)',
                 color: '#fff',
                 fontWeight: 'bold',
-                padding: '12px'
+                padding: '12px',
+                ...(isSaving || !sessionNotes.trim() ? { opacity: 0.5, cursor: 'not-allowed' } : {})
               }}
             >
-              💾 Save Session Recap
+              {isSaving ? 'Saving…' : '💾 Save Session Recap'}
             </button>
 
             {saveStatus.type && (
               <div
                 className="animate-fade-in"
+                role="status"
                 style={{
                   fontSize: '12px',
                   padding: '8px 12px',
@@ -691,7 +740,7 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

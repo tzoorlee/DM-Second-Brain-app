@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
-
 :root {
   /* Color Palette */
   --bg-primary: #0a0c10;
@@ -26,8 +24,9 @@
   --danger: #ef4444;
   --warning: #f59e0b;
   
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-display: 'Outfit', sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-outfit), var(--font-sans);
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   
   --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px rgba(147, 51, 234, 0.15);
@@ -106,11 +105,303 @@ h1, h2, h3, h4, h5, h6 {
   background: radial-gradient(circle at 50% -20%, rgba(147, 51, 234, 0.12) 0%, transparent 70%);
 }
 
+.dashboard-grid > .panel {
+  min-width: 0;
+}
+
+/* Tab bar for narrow screens: hidden while all three columns fit */
+.mobile-tabs {
+  display: none;
+}
+
 @media (max-width: 1280px) {
   .dashboard-grid {
-    grid-template-columns: 300px 1fr 380px;
+    grid-template-columns: 280px minmax(0, 1fr) 340px;
     gap: 12px;
     padding: 12px;
+  }
+}
+
+/* Below this width the columns stop fitting: show one panel at a time */
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .mobile-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .mobile-tabs button {
+    flex: 1;
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+
+  .dashboard-grid > .panel:not(.panel-active) {
+    display: none;
+  }
+}
+
+.mode-banner {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 6px 12px;
+  background: rgba(20, 184, 166, 0.12);
+  color: var(--accent-teal);
+  border-bottom: 1px solid rgba(20, 184, 166, 0.3);
+}
+
+/* Entity list */
+.result-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.link-button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-primary);
+}
+
+.result-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  font-weight: 400;
+}
+
+.result-item:hover {
+  background: var(--bg-glass-hover);
+  box-shadow: none;
+}
+
+.result-item.selected {
+  background: rgba(147, 51, 234, 0.15);
+  border-color: rgba(147, 51, 234, 0.35);
+}
+
+.badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-outline {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+}
+
+.tag-chip {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/* Text fields already show a focus glow */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+/* Rendered wiki markdown */
+.markdown {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.markdown h1 {
+  font-size: 24px;
+  margin: 20px 0 10px;
+  color: var(--text-primary);
+}
+
+.markdown h2 {
+  font-size: 18px;
+  margin: 24px 0 10px;
+  padding-bottom: 4px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.markdown h2.secrets-heading {
+  color: #ec4899;
+  border-bottom-color: rgba(236, 72, 153, 0.35);
+}
+
+.markdown h3,
+.markdown h4 {
+  font-size: 15px;
+  margin: 14px 0 6px;
+  color: var(--text-primary);
+}
+
+.markdown p {
+  margin: 8px 0;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 6px 0 10px;
+  padding-left: 22px;
+}
+
+.markdown ul {
+  list-style-type: square;
+}
+
+.markdown li {
+  margin-bottom: 4px;
+}
+
+.markdown li::marker {
+  color: var(--text-muted);
+}
+
+.markdown strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.markdown blockquote {
+  border-left: 3px solid var(--accent-purple);
+  padding-left: 12px;
+  margin: 10px 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 18px 0;
+}
+
+.wikilink {
+  display: inline;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #c084fc;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.wikilink:hover {
+  background: transparent;
+  box-shadow: none;
+  color: #d8b4fe;
+}
+
+/* A [[link]] to a page that doesn't exist (or is hidden in Player Safe) */
+.wikilink-missing {
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: underline dashed;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+/* Note taker */
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.suggestions {
+  position: absolute;
+  min-width: 220px;
+  max-width: calc(100% - 16px);
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--accent-purple);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+}
+
+.suggestion {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.suggestion.active {
+  background: rgba(147, 51, 234, 0.25);
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
@@ -148,6 +439,17 @@ input, textarea, select {
   font-size: 14px;
   transition: all 0.2s ease;
   outline: none;
+}
+
+/* Native dropdown menus are drawn by the browser: give them a dark, opaque look */
+select {
+  color-scheme: dark;
+  background-color: var(--bg-secondary);
+}
+
+select option {
+  background-color: var(--bg-panel);
+  color: var(--text-primary);
 }
 
 input:focus, textarea:focus, select:focus {
