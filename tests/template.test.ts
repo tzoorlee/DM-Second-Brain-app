@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { describe, expect, it } from 'vitest';
-import { extractTemplate, isAllowedTemplatePath, templateArchiveUrl } from '../src/app/utils/template';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { downloadTemplateArchive, extractTemplate, isAllowedTemplatePath, templateArchiveUrl } from '../src/app/utils/template';
 import { makeTempDir, makeTemplateArchive } from './helpers';
 
 describe('template archive', () => {
@@ -35,5 +35,38 @@ describe('template archive', () => {
 
   it('templateArchiveUrl', () => {
     expect(templateArchiveUrl()).toBe('https://codeload.github.com/tzoorlee/DM-Second-Brain/tar.gz/refs/tags/v0.4.0');
+  });
+});
+
+describe('template download', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // A body streamed in 1 MB chunks, with no Content-Length to rely on
+  const streamOf = (megabytes: number) =>
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < megabytes; i++) controller.enqueue(new Uint8Array(1024 * 1024));
+        controller.close();
+      },
+    });
+
+  // The byte count or the error: never a big Buffer that Vitest would try to print
+  const outcome = () => downloadTemplateArchive().then(archive => archive.length, (error: unknown) => error);
+
+  it('returns the archive bytes', async () => {
+    vi.stubGlobal('fetch', async () => new Response(streamOf(2)));
+    expect((await downloadTemplateArchive()).length).toBe(2 * 1024 * 1024);
+  });
+
+  it('stops a download over 20 MB', async () => {
+    vi.stubGlobal('fetch', async () => new Response(streamOf(21)));
+    expect(await outcome()).toMatchObject({ status: 502, message: 'The template download is too large.' });
+  });
+
+  it('refuses a Content-Length over 20 MB before reading', async () => {
+    vi.stubGlobal('fetch', async () => new Response('x', { headers: { 'Content-Length': String(25 * 1024 * 1024) } }));
+    expect(await outcome()).toMatchObject({ status: 502, message: 'The template download is too large.' });
   });
 });

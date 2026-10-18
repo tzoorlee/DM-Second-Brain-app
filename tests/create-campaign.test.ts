@@ -43,6 +43,19 @@ describe('createCampaign', () => {
     expect(fs.readdirSync(dir)).toEqual([]);
   });
 
+  it('non-Latin names get a generic id and keep their title', async () => {
+    const dir = setup();
+    expect(await createCampaign('Дракон', fixture)).toEqual({ id: 'campaign' });
+    expect(await createCampaign('龍', fixture)).toEqual({ id: 'campaign-2' });
+    expect(fs.readFileSync(path.join(dir, 'campaign', 'wiki', 'index.md'), 'utf-8').startsWith('# Дракон — Index\n')).toBe(true);
+  });
+
+  it('line breaks and tabs in the name become single spaces', async () => {
+    const dir = setup();
+    expect(await createCampaign('La\n\tValle', fixture)).toEqual({ id: 'la-valle' });
+    expect(fs.readFileSync(path.join(dir, 'la-valle', 'wiki', 'index.md'), 'utf-8').startsWith('# La Valle — Index\n')).toBe(true);
+  });
+
   it('rejects an existing id with 409', async () => {
     const dir = setup();
     makeCampaign(dir, 'la-valle');

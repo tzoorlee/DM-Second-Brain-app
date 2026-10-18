@@ -1,8 +1,10 @@
 import { x as extract } from 'tar';
-import { CampaignError } from './campaigns';
+import { CampaignError } from './campaign-error';
 import { TEMPLATE_RELEASE, TEMPLATE_REPO } from './vault';
 
 const DOWNLOAD_TIMEOUT_MS = 30_000;
+// The template archive is well under 1 MB; anything this big is not it
+const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 
 // What a new campaign takes from the template. The rest of the repository (README,
 // CHANGELOG, examples/...) is about the template itself.
@@ -24,11 +26,27 @@ export function isAllowedTemplatePath(relativePath: string): boolean {
 }
 
 export async function downloadTemplateArchive(): Promise<Buffer> {
+  const tooLarge = () => new CampaignError('The template download is too large.', 502);
   try {
     const res = await fetch(templateArchiveUrl(), { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return Buffer.from(await res.arrayBuffer());
-  } catch {
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    if (Number(res.headers.get('content-length')) > MAX_DOWNLOAD_BYTES) throw tooLarge();
+
+    // Read in chunks so an oversized body is cut off instead of buffered whole
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    const reader = res.body.getReader();
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+      size += read.value.length;
+      if (size > MAX_DOWNLOAD_BYTES) {
+        await reader.cancel();
+        throw tooLarge();
+      }
+      chunks.push(read.value);
+    }
+    return Buffer.concat(chunks);
+  } catch (error) {
+    if (error instanceof CampaignError) throw error;
     throw new CampaignError('Could not download the template. Are you offline?', 502);
   }
 }

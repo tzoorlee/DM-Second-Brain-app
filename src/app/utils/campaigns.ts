@@ -13,18 +13,17 @@ import {
 } from './vault';
 import { downloadTemplateArchive, extractTemplate } from './template';
 
-// Carries the HTTP status the API answers with
-export class CampaignError extends Error {
-  constructor(message: string, readonly status: number) {
-    super(message);
-  }
-}
+import { CampaignError } from './campaign-error';
+
+export { CampaignError };
 
 export interface CampaignSummary {
   id: string;
   title: string;
   vaultFormat: number | null;
   supported: boolean;
+  // Why an unsupported campaign can't be opened
+  problem?: 'unsupported-format' | 'bad-marker';
 }
 
 // Answer of GET /api/campaigns
@@ -77,9 +76,10 @@ export function listCampaigns(): CampaignSummary[] {
   const campaigns: CampaignSummary[] = [];
   for (const entry of entries) {
     // Dot folders (like .creating-*) and names that can't be ids are not campaigns
-    if (!entry.isDirectory() || !isValidCampaignId(entry.name)) continue;
+    if (!isValidCampaignId(entry.name)) continue;
     const root = path.join(dir, entry.name);
-    if (!fs.existsSync(path.join(root, 'wiki'))) continue;
+    // statSync follows symlinks, so a campaign linked in from elsewhere is listed too
+    if (!isDirectoryPath(root) || !fs.existsSync(path.join(root, 'wiki'))) continue;
 
     const format = readVaultFormat(root);
     let vaultFormat: number | null = null;
@@ -89,9 +89,30 @@ export function listCampaigns(): CampaignSummary[] {
       const declared: unknown = JSON.parse(fs.readFileSync(path.join(root, 'dm-second-brain.json'), 'utf-8')).vaultFormat;
       vaultFormat = typeof declared === 'number' ? declared : null;
     }
-    campaigns.push({ id: entry.name, title: getCampaignTitle(root), vaultFormat, supported: format.ok });
+    campaigns.push({
+      id: entry.name,
+      title: getCampaignTitle(root),
+      vaultFormat,
+      supported: format.ok,
+      ...(format.ok ? {} : { problem: format.problem }),
+    });
   }
   return campaigns.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function isDirectoryPath(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Written to a temporary file and renamed, so a reader never sees it half-written
+function writeActiveCampaign(dir: string, id: string) {
+  const tmp = path.join(dir, `${ACTIVE_CAMPAIGN_FILE}.${process.pid}-${Date.now()}.tmp`);
+  fs.writeFileSync(tmp, JSON.stringify({ id }) + '\n');
+  fs.renameSync(tmp, path.join(dir, ACTIVE_CAMPAIGN_FILE));
 }
 
 export function requireCampaignsDir(): string {
@@ -104,10 +125,14 @@ export function requireCampaignsDir(): string {
 
 export function setActiveCampaign(id: string): void {
   const dir = requireCampaignsDir();
-  const campaign = isValidCampaignId(id) ? listCampaigns().find(c => c.id === id) : undefined;
-  if (!campaign) throw new CampaignError(`There is no campaign "${id}".`, 400);
+  if (!isValidCampaignId(id)) throw new CampaignError(`"${id}" is not a campaign id.`, 400);
+  const campaign = listCampaigns().find(c => c.id === id);
+  if (!campaign) throw new CampaignError(`There is no campaign "${id}".`, 404);
+  if (campaign.problem === 'bad-marker') {
+    throw new CampaignError(`"${campaign.title}" can't be opened: its dm-second-brain.json is broken.`, 400);
+  }
   if (!campaign.supported) throw new CampaignError(`"${campaign.title}" needs a newer version of the app.`, 400);
-  fs.writeFileSync(path.join(dir, ACTIVE_CAMPAIGN_FILE), JSON.stringify({ id }) + '\n');
+  writeActiveCampaign(dir, id);
 }
 
 export function getCampaignsInfo(): CampaignsInfo {
@@ -121,15 +146,26 @@ export function getCampaignsInfo(): CampaignsInfo {
   };
 }
 
+// For names in scripts the id can't spell ("Дракон"): campaign, campaign-2, ...
+// '' when the name has no letters or numbers at all.
+function genericCampaignId(dir: string, name: string): string {
+  if (!/[\p{L}\p{N}]/u.test(name)) return '';
+  for (let n = 1; ; n++) {
+    const id = n === 1 ? 'campaign' : `campaign-${n}`;
+    if (!fs.existsSync(path.join(dir, id))) return id;
+  }
+}
+
 // Downloads the pinned template release into a new campaign folder and opens it.
 // The campaign is built in a .creating-* folder and renamed into place at the end,
 // so a failure never leaves a half-made campaign behind.
 export async function createCampaign(name: string, download: () => Promise<Buffer> = downloadTemplateArchive): Promise<{ id: string }> {
   const dir = requireCampaignsDir();
-  const trimmed = name.trim();
+  // Line breaks would split the index heading
+  const trimmed = name.replace(/\s+/g, ' ').trim();
   if (!trimmed) throw new CampaignError('Give the campaign a name.', 400);
   if (trimmed.length > 80) throw new CampaignError('Keep the name under 80 characters.', 400);
-  const id = campaignIdFromName(trimmed);
+  const id = campaignIdFromName(trimmed) || genericCampaignId(dir, trimmed);
   if (!id) throw new CampaignError('Use some letters or numbers in the name.', 400);
   const target = path.join(dir, id);
   const taken = () => new CampaignError(`There is already a campaign folder named "${id}".`, 409);
@@ -167,6 +203,6 @@ export async function createCampaign(name: string, download: () => Promise<Buffe
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 
-  fs.writeFileSync(path.join(dir, ACTIVE_CAMPAIGN_FILE), JSON.stringify({ id }) + '\n');
+  writeActiveCampaign(dir, id);
   return { id };
 }

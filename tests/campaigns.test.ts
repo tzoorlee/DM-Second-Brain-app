@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CampaignError,
   campaignIdFromName,
@@ -47,6 +47,9 @@ describe('getCampaignTitle', () => {
 
 describe('listing and activating', () => {
   isolateEnv();
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   function setup() {
     const dir = makeTempDir();
@@ -78,9 +81,22 @@ describe('listing and activating', () => {
     makeCampaign(dir, 'future', { marker: { vaultFormat: 99 } });
     makeCampaign(dir, 'broken', { marker: 'not json' });
     expect(listCampaigns()).toEqual([
-      { id: 'broken', title: 'broken', vaultFormat: null, supported: false },
-      { id: 'future', title: 'future', vaultFormat: 99, supported: false },
+      { id: 'broken', title: 'broken', vaultFormat: null, supported: false, problem: 'bad-marker' },
+      { id: 'future', title: 'future', vaultFormat: 99, supported: false, problem: 'unsupported-format' },
     ]);
+  });
+
+  it('a broken marker is reported as broken, not as a newer version', () => {
+    const dir = setup();
+    makeCampaign(dir, 'broken', { marker: 'not json' });
+    expect(() => setActiveCampaign('broken')).toThrow(/dm-second-brain\.json is broken/);
+  });
+
+  it('lists campaign folders reached through a symlink', () => {
+    const dir = setup();
+    const elsewhere = makeCampaign(makeTempDir(), 'real', { index: '# Linked — Index' });
+    fs.symlinkSync(elsewhere, path.join(dir, 'linked'));
+    expect(listCampaigns()).toEqual([{ id: 'linked', title: 'Linked', vaultFormat: 1, supported: true }]);
   });
 
   it('lists nothing when CAMPAIGNS_DIR does not exist', () => {
@@ -95,12 +111,21 @@ describe('listing and activating', () => {
     expect(getVaultStatus()).toMatchObject({ ok: true, root: path.join(dir, 'alpha') });
   });
 
-  it.each(['../x', 'missing', 'unsupported'])('setActiveCampaign(%j) throws 400', (id) => {
+  it.each([['../x', 400], ['missing', 404], ['unsupported', 400]])('setActiveCampaign(%j) throws %i', (id, status) => {
     const dir = setup();
     makeCampaign(dir, 'unsupported', { marker: { vaultFormat: 99 } });
     makeCampaign(path.dirname(dir), 'x');
-    expect(() => setActiveCampaign(id)).toThrow(expect.objectContaining({ status: 400 }));
+    expect(() => setActiveCampaign(id)).toThrow(expect.objectContaining({ status }));
     expect(fs.existsSync(path.join(dir, '.active-campaign.json'))).toBe(false);
+  });
+
+  it('setActiveCampaign replaces the active file in one rename', () => {
+    const dir = setup();
+    makeCampaign(dir, 'alpha');
+    const rename = vi.spyOn(fs, 'renameSync');
+    setActiveCampaign('alpha');
+    expect(rename).toHaveBeenCalledWith(expect.any(String), path.join(dir, '.active-campaign.json'));
+    expect(fs.readdirSync(dir).sort()).toEqual(['.active-campaign.json', 'alpha']);
   });
 
   it('setActiveCampaign throws 409 when VAULT_PATH is set', () => {
