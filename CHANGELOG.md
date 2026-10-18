@@ -7,6 +7,22 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.5.1] - 2026-10-18
+
+### Changed
+
+- **Campaign menu** redesigned: it looks like a selector, lists every campaign with its folder name and a ✓ on the open one, and adds a **New campaign** shortcut next to **Manage campaigns…**.
+
+### Fixed
+
+- A campaign with a broken `dm-second-brain.json` now says so, instead of asking to update the app.
+- Campaign folders reached through a symlink are listed.
+- Names in other scripts ("Дракон", "龍") create `campaign`, `campaign-2`, ... instead of failing. Line breaks in a name become spaces.
+- `.active-campaign.json` is written in one step, so it is never read half-written.
+- Opening an unknown campaign answers `404` instead of `400`.
+- The template download stops at 20 MB.
+- The setup screen no longer runs a search, which left a `503` in the browser console.
+
 ## [0.5.0] - 2026-10-18
 
 ### Added

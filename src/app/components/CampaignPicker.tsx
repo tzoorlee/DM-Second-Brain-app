@@ -5,7 +5,7 @@ import type { CampaignsInfo } from '../utils/campaigns';
 
 // The campaigns in CAMPAIGNS_DIR and the form to create one. Opening or creating a
 // campaign changes it for the whole app, so the page reloads afterwards.
-export default function CampaignPicker({ info }: { info: CampaignsInfo }) {
+export default function CampaignPicker({ info, focusNewCampaign = false }: { info: CampaignsInfo; focusNewCampaign?: boolean }) {
   const [name, setName] = useState('');
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<{ where: 'list' | 'form'; message: string } | null>(null);
@@ -51,7 +51,8 @@ export default function CampaignPicker({ info }: { info: CampaignsInfo }) {
                 <span className="campaign-title">{pending === campaign.id ? 'Opening…' : campaign.title}</span>
                 <span className="campaign-id">
                   {campaign.id}
-                  {!campaign.supported && ' · Update the app to open it'}
+                  {campaign.problem === 'bad-marker' && ' · Its dm-second-brain.json is broken'}
+                  {campaign.problem === 'unsupported-format' && ' · Update the app to open it'}
                 </span>
               </button>
             </li>
@@ -68,6 +69,7 @@ export default function CampaignPicker({ info }: { info: CampaignsInfo }) {
             type="text"
             placeholder="Campaign name"
             maxLength={80}
+            autoFocus={focusNewCampaign}
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={pending !== null}

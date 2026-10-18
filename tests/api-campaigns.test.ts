@@ -54,6 +54,11 @@ describe('campaigns API', () => {
     expect((await res.json()).error).toBeTruthy();
   });
 
+  it('POST active with an unknown id → 404', async () => {
+    setup();
+    expect((await activePost(post('{"id":"gamma"}'))).status).toBe(404);
+  });
+
   it('POST active with bad JSON → 400', async () => {
     setup();
     expect((await activePost(post('not json'))).status).toBe(400);
