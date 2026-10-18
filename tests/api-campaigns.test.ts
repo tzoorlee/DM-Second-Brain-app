@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { describe, expect, it } from 'vitest';
 import { GET, POST as createPost } from '../src/app/api/campaigns/route';
 import { POST as activePost } from '../src/app/api/campaigns/active/route';
@@ -25,6 +26,18 @@ describe('campaigns API', () => {
     expect(body.mode).toBe('campaigns-dir');
     expect(body.activeId).toBe('alpha');
     expect(body.campaigns).toHaveLength(2);
+  });
+
+  it('GET answers 200 with an empty list when CAMPAIGNS_DIR is unreadable', async () => {
+    const dir = setup();
+    fs.chmodSync(dir, 0o000);
+    try {
+      const res = await GET();
+      expect(res.status).toBe(200);
+      expect((await res.json()).campaigns).toEqual([]);
+    } finally {
+      fs.chmodSync(dir, 0o700);
+    }
   });
 
   it('POST active switches campaign', async () => {

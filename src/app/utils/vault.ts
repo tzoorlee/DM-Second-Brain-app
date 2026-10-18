@@ -26,7 +26,8 @@ export type VaultProblem =
   | 'bad-marker'
   | 'unsupported-format'
   | 'no-active-campaign'
-  | 'campaigns-dir-not-found';
+  | 'campaigns-dir-not-found'
+  | 'campaigns-dir-unreadable';
 
 export type VaultStatus =
   | { ok: true; root: string; vaultFormat: number; warning?: string }
@@ -129,6 +130,16 @@ export function getVaultStatus(): VaultStatus {
       ok: false,
       problem: 'campaigns-dir-not-found',
       message: `CAMPAIGNS_DIR is "${envValue('CAMPAIGNS_DIR')}", but there is no folder there.`,
+    };
+  }
+
+  try {
+    fs.accessSync(campaignsDir, fs.constants.R_OK | fs.constants.X_OK);
+  } catch {
+    return {
+      ok: false,
+      problem: 'campaigns-dir-unreadable',
+      message: `The app can't read CAMPAIGNS_DIR ("${envValue('CAMPAIGNS_DIR')}"). Check the folder's permissions.`,
     };
   }
 

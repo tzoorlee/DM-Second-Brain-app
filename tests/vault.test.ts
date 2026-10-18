@@ -97,6 +97,20 @@ describe('campaign resolution', () => {
     expect(status.ok && status.root).toBe(path.join(home, 'single'));
   });
 
+  it('unreadable CAMPAIGNS_DIR → campaigns-dir-unreadable', () => {
+    const campaigns = makeTempDir();
+    makeCampaign(campaigns, 'alpha');
+    writeActive(campaigns, '{"id":"alpha"}');
+    fs.chmodSync(campaigns, 0o000);
+    process.env.CAMPAIGNS_DIR = campaigns;
+    try {
+      const status = getVaultStatus();
+      expect(!status.ok && status.problem).toBe('campaigns-dir-unreadable');
+    } finally {
+      fs.chmodSync(campaigns, 0o700);
+    }
+  });
+
   it('unsupported format of the active campaign', () => {
     const campaigns = makeTempDir();
     makeCampaign(campaigns, 'alpha', { marker: { vaultFormat: 99 } });

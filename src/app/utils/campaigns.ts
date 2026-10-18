@@ -66,8 +66,16 @@ export function listCampaigns(): CampaignSummary[] {
   const dir = getCampaignsDir();
   if (getVaultMode() !== 'campaigns-dir' || !dir || !fs.existsSync(dir)) return [];
 
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    // An unreadable folder is reported by getVaultStatus()
+    return [];
+  }
+
   const campaigns: CampaignSummary[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  for (const entry of entries) {
     // Dot folders (like .creating-*) and names that can't be ids are not campaigns
     if (!entry.isDirectory() || !isValidCampaignId(entry.name)) continue;
     const root = path.join(dir, entry.name);

@@ -6,6 +6,9 @@ import type { CampaignsInfo } from '../utils/campaigns';
 
 const TEMPLATE_URL = 'https://github.com/tzoorlee/DM-Second-Brain';
 
+// Problems fixed by editing .env.local: the setup instructions apply
+const CONFIG_PROBLEMS = ['not-configured', 'not-found', 'not-a-vault', 'campaigns-dir-not-found', 'campaigns-dir-unreadable'];
+
 interface VaultSetupProps {
   problem?: string;
   message?: string;
@@ -39,8 +42,8 @@ export default function VaultSetup({ problem, message, campaigns, onBack }: Vaul
           </div>
           {message && (problem === 'no-active-campaign' ? <p>{message}</p> : <div className="setup-problem" role="alert">{message}</div>)}
           {needsAppUpdate && updateText}
-          {problem === 'campaigns-dir-not-found' ? (
-            <p>Create that folder, or fix <code>CAMPAIGNS_DIR</code> in <code>.env.local</code>, then reload this page.</p>
+          {problem === 'campaigns-dir-not-found' || problem === 'campaigns-dir-unreadable' ? (
+            <p>Create or fix that folder, or change <code>CAMPAIGNS_DIR</code> in <code>.env.local</code>, then reload this page.</p>
           ) : (
             <CampaignPicker info={campaigns} />
           )}
@@ -57,6 +60,8 @@ export default function VaultSetup({ problem, message, campaigns, onBack }: Vaul
 
         {needsAppUpdate ? (
           updateText
+        ) : !CONFIG_PROBLEMS.includes(problem ?? '') ? (
+          <p>Reload this page to try again.</p>
         ) : (
           <>
             <p>
