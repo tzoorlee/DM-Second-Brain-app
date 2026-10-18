@@ -8,8 +8,10 @@ import {
   isValidCampaignId,
   readActiveCampaignId,
   readVaultFormat,
+  TEMPLATE_RELEASE,
   VaultMode,
 } from './vault';
+import { downloadTemplateArchive, extractTemplate } from './template';
 
 // Carries the HTTP status the API answers with
 export class CampaignError extends Error {
@@ -109,4 +111,54 @@ export function getCampaignsInfo(): CampaignsInfo {
     activeTitle: status.ok ? getCampaignTitle(status.root) : null,
     campaigns: listCampaigns(),
   };
+}
+
+// Downloads the pinned template release into a new campaign folder and opens it.
+// The campaign is built in a .creating-* folder and renamed into place at the end,
+// so a failure never leaves a half-made campaign behind.
+export async function createCampaign(name: string, download: () => Promise<Buffer> = downloadTemplateArchive): Promise<{ id: string }> {
+  const dir = requireCampaignsDir();
+  const trimmed = name.trim();
+  if (!trimmed) throw new CampaignError('Give the campaign a name.', 400);
+  if (trimmed.length > 80) throw new CampaignError('Keep the name under 80 characters.', 400);
+  const id = campaignIdFromName(trimmed);
+  if (!id) throw new CampaignError('Use some letters or numbers in the name.', 400);
+  const target = path.join(dir, id);
+  const taken = () => new CampaignError(`There is already a campaign folder named "${id}".`, 409);
+  if (fs.existsSync(target)) throw taken();
+
+  const archive = await download();
+  const tmp = fs.mkdtempSync(path.join(dir, `.creating-${id}-`));
+  try {
+    try {
+      await extractTemplate(archive, tmp);
+    } catch {
+      throw new CampaignError('The downloaded template is not a valid archive.', 502);
+    }
+    const format = readVaultFormat(tmp);
+    if (!format.ok || !fs.existsSync(path.join(tmp, 'dm-second-brain.json'))) {
+      throw new CampaignError(`The template release ${TEMPLATE_RELEASE} uses an unsupported vault format.`, 500);
+    }
+
+    const indexPath = path.join(tmp, 'wiki', 'index.md');
+    if (fs.existsSync(indexPath)) {
+      const index = fs.readFileSync(indexPath, 'utf-8');
+      fs.writeFileSync(indexPath, index.replace(/^# .*$/m, () => `# ${trimmed} — Index`));
+    }
+
+    // Checked again: another request may have created it during the download.
+    // On Linux a rename onto an empty folder would silently replace it.
+    if (fs.existsSync(target)) throw taken();
+    try {
+      fs.renameSync(tmp, target);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      throw code === 'EEXIST' || code === 'ENOTEMPTY' ? taken() : error;
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  fs.writeFileSync(path.join(dir, ACTIVE_CAMPAIGN_FILE), JSON.stringify({ id }) + '\n');
+  return { id };
 }

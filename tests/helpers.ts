@@ -42,3 +42,32 @@ export function isolateEnv() {
     process.env = { ...saved };
   });
 }
+
+// A gzipped tarball shaped like GitHub's archive of the template: everything inside
+// one top folder, plus files that must not reach a campaign (README, examples, a link).
+export async function makeTemplateArchive({ marker = { vaultFormat: 1 } }: { marker?: unknown } = {}): Promise<Buffer> {
+  const { c } = await import('tar');
+  const cwd = makeTempDir();
+  const top = path.join(cwd, 'DM-Second-Brain-0.4.0');
+  const files: Record<string, string> = {
+    'CLAUDE.md': '# Rules',
+    'README.md': '# Readme',
+    '.gitignore': 'TODO.md\n',
+    'dm-second-brain.json': JSON.stringify(marker),
+    'wiki/index.md': '# Campaign Index\n\nbody\n',
+    'raw/world-bible.md': '# World',
+    'raw/sessions/README.md': 'sessions',
+    'output/.gitkeep': '',
+    'examples/x/wiki/a.md': 'example',
+  };
+  for (const [rel, content] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(top, rel)), { recursive: true });
+    fs.writeFileSync(path.join(top, rel), content);
+  }
+  fs.symlinkSync('../README.md', path.join(top, 'wiki', 'link.md'));
+
+  const chunks: Buffer[] = [];
+  const stream = c({ gzip: true, cwd }, ['DM-Second-Brain-0.4.0']);
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
