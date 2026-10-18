@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import WikiMarkdown, { WikiInline } from './components/WikiMarkdown';
 import VaultSetup from './components/VaultSetup';
+import CampaignMenu from './components/CampaignMenu';
 import type { CampaignsInfo } from './utils/campaigns';
 import { getCaretCoordinates } from './utils/caret';
 
@@ -117,6 +118,8 @@ export default function Dashboard() {
   const [activePanel, setActivePanel] = useState<PanelId>('wiki');
   const [vault, setVault] = useState<VaultInfo | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignsInfo | null>(null);
+  // "Manage campaigns…" shows the campaign list over the dashboard
+  const [managing, setManaging] = useState(false);
 
   // Note-taking state
   const [sessionTitle, setSessionTitle] = useState('');
@@ -442,6 +445,7 @@ export default function Dashboard() {
   // Nothing to show until the campaign has been checked, or if it can't be opened
   if (!vault) return null;
   if (!vault.ok) return <VaultSetup problem={vault.problem} message={vault.message} campaigns={campaigns} />;
+  if (managing) return <VaultSetup campaigns={campaigns} onBack={() => setManaging(false)} />;
 
   return (
     <div className="dashboard-grid">
@@ -463,7 +467,7 @@ export default function Dashboard() {
       {/* COLUMN 1: WIKI BROWSER */}
       <section className={panelClass('wiki')} aria-label="Campaign wiki">
         <div className="panel-header">
-          <h2 style={{ fontSize: '18px', color: 'var(--accent-gold)' }}>📖 Campaign Wiki</h2>
+          <CampaignMenu info={campaigns} onManage={() => setManaging(true)} />
         </div>
         {vault.warning && <div className="vault-warning" role="note">{vault.warning}</div>}
         <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
