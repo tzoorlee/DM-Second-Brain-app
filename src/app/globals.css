@@ -575,3 +575,70 @@ button.secondary:hover {
   border: 1px solid rgba(239, 68, 68, 0.35);
   color: #fca5a5;
 }
+
+/* Campaign list and creation */
+.setup-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.campaign-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.campaign-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.campaign-title {
+  font-weight: 600;
+}
+
+.campaign-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.campaign-list button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.campaign-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.campaign-form label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.campaign-form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.campaign-form-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.campaign-form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
