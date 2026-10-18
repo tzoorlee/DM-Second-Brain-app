@@ -5,7 +5,7 @@ import { downloadTemplateArchive, extractTemplate, isAllowedTemplatePath, templa
 import { makeTempDir, makeTemplateArchive } from './helpers';
 
 describe('template archive', () => {
-  it.each(['CLAUDE.md', 'dm-second-brain.json', '.gitignore', 'wiki', 'wiki/', 'wiki/index.md', 'raw/sessions/README.md', 'output/.gitkeep'])(
+  it.each(['CLAUDE.md', 'TEMPLATES.md', 'dm-second-brain.json', '.gitignore', 'wiki', 'wiki/', 'wiki/index.md', 'raw/sessions/README.md', 'output/.gitkeep'])(
     'allows %j',
     (p) => expect(isAllowedTemplatePath(p)).toBe(true),
   );
@@ -34,7 +34,7 @@ describe('template archive', () => {
   });
 
   it('templateArchiveUrl', () => {
-    expect(templateArchiveUrl()).toBe('https://codeload.github.com/tzoorlee/DM-Second-Brain/tar.gz/refs/tags/v0.4.0');
+    expect(templateArchiveUrl()).toBe('https://codeload.github.com/tzoorlee/DM-Second-Brain/tar.gz/refs/tags/v0.5.0');
   });
 });
 
