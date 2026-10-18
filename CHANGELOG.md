@@ -7,6 +7,24 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.6.0] - 2026-10-18
+
+### Added
+
+- **Every link field on the entity sheet**: location, region, faction, owner, deity, quest giver, adventure, the secret's subjects and the history pages, shown by the linked page's title. Plain fields too: player, domains, symbol, SRD monster, an event's date and session. Empty fields are not shown.
+- **Linked from**: the pages that point to the open one, grouped by type, with the field they use.
+- **Quest dependencies**: the quests a quest requires (✓ when completed) and the ones it unlocks. An adventure lists its quests with their status.
+- Labels and colors for the template's new types: adventure, deity, creature, lore.
+
+### Changed
+
+- **New campaigns use template `v0.5.0`** and get its `TEMPLATES.md`, the rules for every page type. Vault format is still 1.
+- A `[[slug]]` written without a shown name displays the page's title.
+
+### Security
+
+- In Player Safe, link fields, Linked from and dependencies leave out hidden pages, and links inside DM-only sections don't count.
+
 ## [0.5.1] - 2026-10-18
 
 ### Changed

@@ -786,3 +786,79 @@ button.campaign-switcher[aria-expanded='true'] .campaign-switcher-caret {
   color: #fca5a5;
   padding: 6px 8px;
 }
+
+/* Entity sheet: link fields and relations */
+.entity-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.entity-relations {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.relation-box {
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.relation-box h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.relation-box h4 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 10px 0 4px;
+}
+
+.relation-box h4:first-of-type {
+  margin-top: 0;
+}
+
+.relation-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.relation-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.relation-mark {
+  width: 12px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.relation-status,
+.relation-via {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.relation-group + .relation-group {
+  margin-top: 12px;
+}

@@ -9,6 +9,8 @@ interface LinkProps {
   // Returns the page path for a [[target]], or undefined if no visible page matches
   resolveLink: (target: string) => string | undefined;
   onOpenLink: (relativePath: string) => void;
+  // Title of a resolved page, shown for a [[slug]] written without a shown name
+  titleFor?: (relativePath: string) => string | undefined;
 }
 
 interface WikiMarkdownProps extends LinkProps {
@@ -97,8 +99,8 @@ function renderInline(text: string, links: LinkProps, keyPrefix = ''): React.Rea
       const inner = wikilink.slice(2, -2);
       const pipe = inner.indexOf('|');
       const target = pipe === -1 ? inner : inner.slice(0, pipe);
-      const label = pipe === -1 ? inner : inner.slice(pipe + 1);
       const resolved = links.resolveLink(target);
+      const label = pipe !== -1 ? inner.slice(pipe + 1) : (resolved && links.titleFor?.(resolved)) || inner;
       nodes.push(
         resolved ? (
           <button key={key} type="button" className="wikilink" onClick={() => links.onOpenLink(resolved)}>
