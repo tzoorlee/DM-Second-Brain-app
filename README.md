@@ -1,6 +1,6 @@
 # DM-Second-Brain App
 
-![version](https://img.shields.io/badge/version-0.6.0-blue)
+![version](https://img.shields.io/badge/version-0.6.1-blue)
 ![vault format](https://img.shields.io/badge/vault%20format-1-purple)
 
 A local companion app for campaigns built with the
@@ -47,7 +47,7 @@ panel; it also has shortcuts to create a campaign and to manage them.
 
 **New campaign** creates a subfolder from the
 [template](https://github.com/tzoorlee/DM-Second-Brain): the app downloads the template
-release it is built for (currently `v0.5.0`) from GitHub, so it needs an internet
+release it is built for (currently `v0.5.1`) from GitHub, so it needs an internet
 connection. The new campaign gets the template's `CLAUDE.md`, `wiki/`, `raw/`, `output/`,
 `TEMPLATES.md`, `dm-second-brain.json` and `.gitignore`, and is opened right away. The folder name comes
 from the campaign name; names in other scripts (say "Дракон") get `campaign`,
