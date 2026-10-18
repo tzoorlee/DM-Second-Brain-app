@@ -9,6 +9,7 @@ import { POST as fix } from '../src/app/api/studio/steps/[n]/fix/route';
 import { POST as chat } from '../src/app/api/studio/chat/route';
 import { POST as srd } from '../src/app/api/studio/srd/route';
 import { POST as deviations } from '../src/app/api/studio/deviations/route';
+import { POST as createItemRoute } from '../src/app/api/studio/items/route';
 import type { IssueInput, StudioModel } from '../src/app/utils/studio-ai';
 import { setStudioModel } from '../src/app/utils/studio-model';
 import { loadStep, saveStep } from '../src/app/utils/studio-state';
@@ -132,6 +133,31 @@ describe('Studio API', () => {
   it('deviations are added to the Setting', async () => {
     await deviations(req({ text: 'Elminster is dead.' }));
     expect(bible()).toContain('  - Elminster is dead.');
+  });
+
+  it('creates preparations and interludes once play has started', async () => {
+    expect((await createItemRoute(req({ kind: 'prepare', title: 'North' }))).status).toBe(409);
+    fs.mkdirSync(path.join(root, 'raw', 'sessions'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'raw', 'sessions', 'session-03.md'), '# 3');
+    const res = await createItemRoute(req({ kind: 'interlude', title: 'Ashford burns', dateInWorld: '1492-Flamerule-03', afterSession: 'session-03' }));
+    expect(res.status).toBe(201);
+    const { n } = await res.json();
+    const body = await (await getStudio()).json();
+    expect(body.latestSession).toBe('session-03');
+    expect(body.items[0]).toMatchObject({ n, kind: 'interlude', title: 'Ashford burns', status: 'draft' });
+    expect(body.items[0].ingestCommand).toContain('claude "interlude ingest of raw/interludes/');
+    expect((await getStepRoute(new Request('http://x'), ctx(n))).status).toBe(200);
+    expect((await createItemRoute(req({ kind: 'other', title: 'x' }))).status).toBe(400);
+  });
+
+  it('approving an ingested item answers 409', async () => {
+    fs.mkdirSync(path.join(root, 'raw', 'sessions'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'raw', 'sessions', 'session-01.md'), '# 1');
+    const { n } = await (await createItemRoute(req({ kind: 'prepare', title: 'North' }))).json();
+    await approve(req({ skipCheck: true }), ctx(n));
+    const file = (await (await getStudio()).json()).items[0].file;
+    fs.writeFileSync(path.join(root, 'wiki', 'log.md'), `## [design] design — North (${file})\n`);
+    expect((await approve(req({ skipCheck: true }), ctx(n))).status).toBe(409);
   });
 
   it('rejects a bad step and answers 409 without a campaign', async () => {

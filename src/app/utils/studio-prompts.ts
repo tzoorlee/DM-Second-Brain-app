@@ -76,6 +76,22 @@ export const STEP_BRIEFS: Record<number, StepBrief> = {
   },
 };
 
+// Preparations and interludes, after play has started (items numbered from 101)
+export const ITEM_BRIEFS: Record<'prepare' | 'interlude', StepBrief> = {
+  prepare: {
+    goal: 'Prepare new design material between sessions: places, factions, NPCs, the next adventure. It is design (prepared), not history. The established wiki is the strongest constraint: flag anything that contradicts what was played.',
+    questions: ['What do you want ready for the next sessions?', 'Where does it connect to what the PCs already know?'],
+  },
+  interlude: {
+    goal: 'Write what happened off-screen since the last session: events the DM decides are now true. It is history (established). Keep the frontmatter (date_in_world, after_session) as it is.',
+    questions: [
+      'What happened, where and when (in the world)?',
+      'For each fact: do the PCs know it? Write it explicitly, e.g. "The PCs saw the smoke" or "The PCs don\'t know".',
+      'Which NPCs, places or factions does it change?',
+    ],
+  },
+};
+
 export const COHERENCE_SYSTEM = `You check a D&D campaign's worldbuilding for contradictions before the DM saves a step of the World Studio.
 
 Compare the NEW DRAFT with the APPROVED FILES and the ESTABLISHED WIKI pages given. Report only real contradictions or clear tensions: a fact in the draft that cannot be true together with a fact elsewhere. Do not report style, missing detail or suggestions.
