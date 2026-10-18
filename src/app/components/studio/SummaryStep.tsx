@@ -37,7 +37,7 @@ export default function SummaryStep({ overview, onChanged }: { overview: StudioO
       <ul className="studio-summary-list">
         {overview.steps.filter(s => s.n < 9).map(s => (
           <li key={s.n} className={s.status}>
-            {MARK[s.status]} {s.n}. {s.title}
+            {MARK[s.status]} {s.n === 0 ? s.title : `${s.n}. ${s.title}`}
           </li>
         ))}
       </ul>
@@ -54,6 +54,18 @@ export default function SummaryStep({ overview, onChanged }: { overview: StudioO
       </p>
       <pre className="studio-command">{overview.ingestCommand}</pre>
       <button type="button" className="secondary" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+      {overview.inheritedFrom && overview.inheritedIngestCommand && (
+        <>
+          <h3>Then, if you want: the inherited history</h3>
+          <p>
+            The wiki of <strong>{overview.inheritedFrom.title}</strong> is in{' '}
+            <code>raw/setting/from-{overview.inheritedFrom.id}/</code>. The agent can bring it into this wiki as history the
+            new players don&apos;t know yet:
+          </p>
+          <pre className="studio-command">{overview.inheritedIngestCommand}</pre>
+          <button type="button" className="secondary" onClick={() => navigator.clipboard.writeText(overview.inheritedIngestCommand!)}>Copy</button>
+        </>
+      )}
     </section>
   );
 }
