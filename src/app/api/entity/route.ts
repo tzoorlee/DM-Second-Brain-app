@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { errorStatus } from '../../utils/vault';
 import { getEntity, SearchMode } from '../../utils/search';
 
 export async function GET(request: Request) {
@@ -20,6 +21,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json(entity);
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message || 'Failed to retrieve entity' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || 'Failed to retrieve entity' }, { status: errorStatus(error) });
   }
 }

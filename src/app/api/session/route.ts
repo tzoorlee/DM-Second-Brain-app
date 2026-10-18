@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { errorStatus } from '../../utils/vault';
 import fs from 'fs';
 import path from 'path';
 import { getCampaignRoot } from '../../utils/wiki';
@@ -36,7 +37,7 @@ export async function GET() {
 
     return NextResponse.json({ nextSessionNum });
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message || 'Failed to detect next session' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || 'Failed to detect next session' }, { status: errorStatus(error) });
   }
 }
 
@@ -96,10 +97,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       fileName,
-      sessionNum: nextSessionNum,
-      filePath
+      sessionNum: nextSessionNum
     });
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message || 'Failed to save session' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || 'Failed to save session' }, { status: errorStatus(error) });
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { errorStatus } from '../../utils/vault';
 import { searchEntities, SearchMode } from '../../utils/search';
 
 export async function GET(request: Request) {
@@ -17,6 +18,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ entities });
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message || 'Failed to search entities' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || 'Failed to search entities' }, { status: errorStatus(error) });
   }
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import WikiMarkdown, { WikiInline } from './components/WikiMarkdown';
+import VaultSetup from './components/VaultSetup';
 import { getCaretCoordinates } from './utils/caret';
 
 interface EntityFrontmatter {
@@ -29,6 +30,11 @@ interface Entity extends EntitySummary {
 }
 
 type PanelId = 'wiki' | 'sheet' | 'notes';
+
+// Answer of /api/vault: whether the configured campaign can be opened
+type VaultInfo =
+  | { ok: true; vaultFormat: number; warning?: string }
+  | { ok: false; problem: string; message: string };
 
 const TYPE_LABELS: Record<string, string> = {
   npc: 'NPCs',
@@ -108,6 +114,7 @@ export default function Dashboard() {
   const [dmMode, setDmMode] = useState(true);
   // Which panel is shown when the screen is too narrow for all three
   const [activePanel, setActivePanel] = useState<PanelId>('wiki');
+  const [vault, setVault] = useState<VaultInfo | null>(null);
 
   // Note-taking state
   const [sessionTitle, setSessionTitle] = useState('');
@@ -202,6 +209,16 @@ export default function Dashboard() {
       }
       if (draft?.notes) setSessionNotes(draft.notes);
       draftLoaded.current = true;
+
+      let vaultInfo: VaultInfo;
+      try {
+        vaultInfo = await (await fetch('/api/vault')).json();
+      } catch {
+        vaultInfo = { ok: false, problem: 'unreachable', message: 'The app server is not responding.' };
+      }
+      setVault(vaultInfo);
+      if (!vaultInfo.ok) return;
+
       await fetchNextSessionNum(draft?.notes ? draft.title : undefined);
       await fetchAllEntities();
     };
@@ -418,6 +435,10 @@ export default function Dashboard() {
   const panelClass = (id: PanelId) => `panel glass${activePanel === id ? ' panel-active' : ''}`;
   const linkProps = { resolveLink: resolveWikiLink, onOpenLink: handleOpenLink };
 
+  // Nothing to show until the campaign has been checked, or if it can't be opened
+  if (!vault) return null;
+  if (!vault.ok) return <VaultSetup problem={vault.problem} message={vault.message} />;
+
   return (
     <div className="dashboard-grid">
       {/* Shown only on narrow screens, where one panel fits at a time */}
@@ -440,6 +461,7 @@ export default function Dashboard() {
         <div className="panel-header">
           <h2 style={{ fontSize: '18px', color: 'var(--accent-gold)' }}>📖 Campaign Wiki</h2>
         </div>
+        {vault.warning && <div className="vault-warning" role="note">{vault.warning}</div>}
         <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <input

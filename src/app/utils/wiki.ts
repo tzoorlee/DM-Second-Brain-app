@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
+import { getCampaignRoot } from './vault';
 
 export { splitDmSecrets } from './secrets';
 
@@ -26,11 +27,8 @@ export interface Entity {
   body: string;
 }
 
-// The campaign vault defaults to the folder above dashboard/. Set VAULT_PATH
-// (absolute, or relative to dashboard/) to point at a campaign stored elsewhere.
-export function getCampaignRoot(): string {
-  return path.resolve(process.cwd(), process.env.VAULT_PATH?.trim() || '..');
-}
+// The campaign vault is set by VAULT_PATH and checked in vault.ts
+export { getCampaignRoot };
 
 export function parseMarkdown(content: string): { frontmatter: EntityFrontmatter; body: string } {
   const { data, content: body } = matter(content);
