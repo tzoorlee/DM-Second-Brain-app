@@ -7,6 +7,21 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.5.0] - 2026-10-18
+
+### Added
+
+- **Campaigns folder.** Set `CAMPAIGNS_DIR` to a folder of campaigns: the setup screen lists them and opens the one you pick. The choice is saved in `.active-campaign.json` and holds for the whole app.
+- **New campaign** from the setup screen: the app downloads the template release it supports (`v0.4.0`) from GitHub, keeps only what a campaign needs, and opens it.
+- **Campaign menu** on the campaign's name in the wiki panel, to switch campaign or manage them.
+- `GET /api/campaigns`, `POST /api/campaigns` and `POST /api/campaigns/active`. They take campaign ids, never paths.
+- Tests with Vitest (`pnpm test`).
+
+### Changed
+
+- `VAULT_PATH` still opens a single campaign and wins over `CAMPAIGNS_DIR`.
+- `VAULT_PATH` and `CAMPAIGNS_DIR` accept paths starting with `~/`.
+
 ## [0.4.0] - 2026-10-18
 
 ### Changed

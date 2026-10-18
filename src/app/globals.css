@@ -575,3 +575,143 @@ button.secondary:hover {
   border: 1px solid rgba(239, 68, 68, 0.35);
   color: #fca5a5;
 }
+
+/* Campaign list and creation */
+.setup-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.campaign-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.campaign-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.campaign-title {
+  font-weight: 600;
+}
+
+.campaign-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.campaign-list button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.campaign-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.campaign-form label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.campaign-form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.campaign-form-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.campaign-form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Campaign menu in the wiki panel header */
+.campaign-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.campaign-menu {
+  position: relative;
+  min-width: 0;
+}
+
+.campaign-menu-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 2px 6px;
+  margin-left: -6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--accent-gold);
+  box-shadow: none;
+}
+
+.campaign-menu-button:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border-color);
+  box-shadow: none;
+}
+
+.campaign-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-panel);
+}
+
+.campaign-menu-list button {
+  justify-content: flex-start;
+  text-align: left;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.campaign-menu-list button:hover {
+  background: var(--bg-glass-hover);
+  box-shadow: none;
+}
+
+.campaign-menu-list .campaign-menu-manage {
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 6px 6px;
+}
+
+.campaign-menu-error {
+  font-size: 12px;
+  color: #fca5a5;
+  padding: 6px 8px;
+}
