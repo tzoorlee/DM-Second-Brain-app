@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import WikiMarkdown, { WikiInline } from './components/WikiMarkdown';
+import WikiMarkdown from './components/WikiMarkdown';
 import VaultSetup from './components/VaultSetup';
 import CampaignMenu from './components/CampaignMenu';
+import EntityFacts from './components/EntityFacts';
+import EntityRelations from './components/EntityRelations';
+import type { EntityLinks } from './utils/links';
 import type { CampaignsInfo } from './utils/campaigns';
 import { getCaretCoordinates } from './utils/caret';
+import { getStatusColor, getTypeColor, TYPE_LABELS } from './utils/types';
 
 interface EntityFrontmatter {
   type?: string;
@@ -29,6 +33,7 @@ interface EntitySummary {
 
 interface Entity extends EntitySummary {
   body: string;
+  links?: EntityLinks;
 }
 
 type PanelId = 'wiki' | 'sheet' | 'notes';
@@ -37,58 +42,6 @@ type PanelId = 'wiki' | 'sheet' | 'notes';
 type VaultInfo =
   | { ok: true; vaultFormat: number; warning?: string }
   | { ok: false; problem: string; message: string };
-
-const TYPE_LABELS: Record<string, string> = {
-  npc: 'NPCs',
-  pc: 'Player Characters',
-  city: 'Cities',
-  'city-history': 'City Histories',
-  region: 'Regions',
-  'region-history': 'Region Histories',
-  location: 'Locations',
-  dungeon: 'Dungeons',
-  faction: 'Factions',
-  'faction-history': 'Faction Histories',
-  quest: 'Quests',
-  item: 'Items',
-  event: 'Events',
-  secret: 'Secrets',
-  world: 'World',
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  npc: 'var(--accent-purple)',
-  pc: 'var(--accent-teal)',
-  city: '#ca8a04',
-  region: '#65a30d',
-  location: '#ea580c',
-  dungeon: '#dc2626',
-  faction: '#2563eb',
-  quest: '#e11d48',
-  item: '#d97706',
-  event: '#0891b2',
-  secret: '#db2777',
-  world: '#475569',
-};
-
-// "city-history" pages share their entity's color
-const getTypeColor = (type?: string) =>
-  TYPE_COLORS[type?.toLowerCase().replace(/-history$/, '') ?? ''] ?? 'var(--text-muted)';
-
-const getStatusColor = (status?: string) => {
-  switch (status?.toLowerCase()) {
-    case 'alive':
-    case 'active':
-      return 'var(--success)';
-    case 'dead':
-    case 'destroyed':
-      return 'var(--danger)';
-    case 'completed':
-      return '#60a5fa';
-    default:
-      return 'var(--warning)';
-  }
-};
 
 const getCanonColor = (canon?: string) => (canon === 'established' ? '#60a5fa' : 'var(--accent-gold)');
 
@@ -441,7 +394,9 @@ export default function Dashboard() {
   const statusOptions = distinctValues(allEntities, 'status');
   const wordCount = sessionNotes.trim() ? sessionNotes.trim().split(/\s+/).length : 0;
   const panelClass = (id: PanelId) => `panel glass${activePanel === id ? ' panel-active' : ''}`;
-  const linkProps = { resolveLink: resolveWikiLink, onOpenLink: handleOpenLink };
+  // A [[slug]] with no shown name displays the page's title
+  const titleFor = (relativePath: string) => allEntities.find(e => e.relativePath === relativePath)?.title;
+  const linkProps = { resolveLink: resolveWikiLink, onOpenLink: handleOpenLink, titleFor };
 
   // Nothing to show until the campaign has been checked, or if it can't be opened
   if (!vault) return null;
@@ -635,16 +590,7 @@ export default function Dashboard() {
                 {selectedEntity.title}
               </h1>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                {selectedEntity.frontmatter.location && (
-                  <span>Location: <WikiInline text={String(selectedEntity.frontmatter.location)} {...linkProps} /></span>
-                )}
-                {selectedEntity.frontmatter.faction && (
-                  <span>Faction: <WikiInline text={String(selectedEntity.frontmatter.faction)} {...linkProps} /></span>
-                )}
-                {selectedEntity.frontmatter.first_seen && <span>First seen: {selectedEntity.frontmatter.first_seen}</span>}
-                {selectedEntity.frontmatter.last_updated && <span>Updated: {selectedEntity.frontmatter.last_updated}</span>}
-              </div>
+              <EntityFacts frontmatter={selectedEntity.frontmatter} links={selectedEntity.links} onOpenLink={handleOpenLink} />
 
               {Array.isArray(selectedEntity.frontmatter.tags) && selectedEntity.frontmatter.tags.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
@@ -656,6 +602,7 @@ export default function Dashboard() {
 
               {/* Entity Body content */}
               <WikiMarkdown body={selectedEntity.body} title={selectedEntity.title} dmMode={dmMode} {...linkProps} />
+              <EntityRelations type={selectedEntity.frontmatter.type} links={selectedEntity.links} onOpenLink={handleOpenLink} />
             </article>
           ) : (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', textAlign: 'center', gap: '8px' }}>

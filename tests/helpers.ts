@@ -71,3 +71,11 @@ export async function makeTemplateArchive({ marker = { vaultFormat: 1 } }: { mar
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks);
 }
+
+// Writes wiki/<rel> in a campaign folder with YAML frontmatter and a body
+export function writePage(root: string, rel: string, frontmatter: Record<string, unknown>, body: string) {
+  const file = path.join(root, 'wiki', rel);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const yaml = Object.entries(frontmatter).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n');
+  fs.writeFileSync(file, `---\n${yaml}\n---\n\n${body}\n`);
+}

@@ -8,7 +8,7 @@ const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 
 // What a new campaign takes from the template. The rest of the repository (README,
 // CHANGELOG, examples/...) is about the template itself.
-const TEMPLATE_FILES = ['CLAUDE.md', 'dm-second-brain.json', '.gitignore'];
+const TEMPLATE_FILES = ['CLAUDE.md', 'TEMPLATES.md', 'dm-second-brain.json', '.gitignore'];
 const TEMPLATE_FOLDERS = ['wiki', 'raw', 'output'];
 
 export function templateArchiveUrl(): string {

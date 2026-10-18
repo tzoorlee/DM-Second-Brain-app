@@ -1,6 +1,6 @@
 # DM-Second-Brain App
 
-![version](https://img.shields.io/badge/version-0.5.1-blue)
+![version](https://img.shields.io/badge/version-0.6.0-blue)
 ![vault format](https://img.shields.io/badge/vault%20format-1-purple)
 
 A local companion app for campaigns built with the
@@ -47,9 +47,9 @@ panel; it also has shortcuts to create a campaign and to manage them.
 
 **New campaign** creates a subfolder from the
 [template](https://github.com/tzoorlee/DM-Second-Brain): the app downloads the template
-release it is built for (currently `v0.4.0`) from GitHub, so it needs an internet
+release it is built for (currently `v0.5.0`) from GitHub, so it needs an internet
 connection. The new campaign gets the template's `CLAUDE.md`, `wiki/`, `raw/`, `output/`,
-`dm-second-brain.json` and `.gitignore`, and is opened right away. The folder name comes
+`TEMPLATES.md`, `dm-second-brain.json` and `.gitignore`, and is opened right away. The folder name comes
 from the campaign name; names in other scripts (say "Дракон") get `campaign`,
 `campaign-2`, ... and keep their title. To version it, run
 `git init` inside it and keep the repository private: `secrets/` is not ignored.
@@ -78,6 +78,7 @@ A campaign declares its format in `dm-second-brain.json` at its root, for exampl
 | ----------- | ------------- |
 | 0.4.x       | 1             |
 | 0.5.x       | 1             |
+| 0.6.x       | 1             |
 
 If a campaign has no `dm-second-brain.json` (made before template 0.4.0), the app assumes
 format 1 and shows a small notice. It refuses formats it doesn't know rather than guess,
@@ -90,7 +91,13 @@ because a newer format could mark secrets in a way this version doesn't hide.
   ignored, titles weighted above tags and tags above body text. Filters by `type`,
   `canon_status` and `status`, with options taken from your own frontmatter.
 - **Entity sheets** with rendered markdown, clickable `[[wikilinks]]` and a Back button.
-  They also show location, faction, tags and `canon_status` (prepared or established).
+  They also show tags, `canon_status` (prepared or established) and every link field of
+  the page (location, region, faction, owner, deity, quest giver, adventure...) by the
+  linked page's title, plus plain fields such as a PC's player or an event's date.
+- **Links between pages**: each sheet ends with **Linked from**, the pages that point to
+  it. A quest shows its **Dependencies** (the quests it requires, ✓ when completed, and
+  the ones it unlocks); an adventure shows its quests and their status. In Player Safe,
+  hidden pages and DM-only text are left out of all of these.
 - **Player Safe** mode for sharing your screen. It hides `secrets/` pages, entities with
   `pg_known: false`, and DM-only sections. Those are `## Secrets (DM only)`, or any
   level-2 heading that names the DM or GM, such as `## Segreti (solo DM)`. Each runs to
@@ -112,7 +119,8 @@ Campaigns are named by their folder name (the *id*), never by a path.
 - `GET /api/vault` reports whether the campaign can be opened, and which format it uses.
 - `GET /api/search` accepts `q`, `mode` (`dm` or `player`; anything else is treated as
   `player`), `type`, `canon` and `status`.
-- `GET /api/entity` returns one page and accepts `path` (as returned by search) and `mode`,
+- `GET /api/entity` returns one page with its `links` (resolved link fields, `linkedFrom`,
+  and the quests it `unlocks`) and accepts `path` (as returned by search) and `mode`,
   with the same player-safe default. In player mode it answers 404 for hidden pages, the
   same as for missing ones, and removes the DM-only section on the server. It only serves
   pages the search index lists.

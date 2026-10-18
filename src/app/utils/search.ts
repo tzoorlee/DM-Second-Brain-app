@@ -1,4 +1,5 @@
 import MiniSearch from 'minisearch';
+import { EntityLinks, getEntityLinks } from './links';
 import { Entity, getAllEntities, getCampaignRoot, isPlayerVisible, listWikiFiles, splitDmSecrets } from './wiki';
 
 export type SearchMode = 'dm' | 'player';
@@ -109,6 +110,7 @@ export function searchEntities(query: string, mode: SearchMode, filters: SearchF
 
 export interface EntityPage extends EntitySummary {
   body: string;
+  links: EntityLinks;
 }
 
 // One page for the entity sheet. Only pages the search index knows about can be
@@ -116,9 +118,10 @@ export interface EntityPage extends EntitySummary {
 // player mode a hidden page is reported as missing and the DM-only section is
 // removed before the text leaves the server.
 export function getEntity(relativePath: string, mode: SearchMode): EntityPage | null {
-  const entity = getIndex().entities.get(relativePath);
+  const { entities } = getIndex();
+  const entity = entities.get(relativePath);
   if (!entity) return null;
   if (mode === 'player' && !isPlayerVisible(entity)) return null;
   const body = mode === 'player' ? splitDmSecrets(entity.body).publicBody : entity.body;
-  return { ...toSummary(entity), body };
+  return { ...toSummary(entity), body, links: getEntityLinks(entity, [...entities.values()], mode) };
 }

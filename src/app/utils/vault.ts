@@ -12,7 +12,7 @@ export const VAULT_MARKER_FILE = 'dm-second-brain.json';
 // The template release new campaigns are created from. Raise it together with
 // SUPPORTED_VAULT_FORMATS: its dm-second-brain.json must declare a supported format.
 export const TEMPLATE_REPO = 'tzoorlee/DM-Second-Brain';
-export const TEMPLATE_RELEASE = 'v0.4.0'; // vault format 1
+export const TEMPLATE_RELEASE = 'v0.5.0'; // vault format 1
 
 // In CAMPAIGNS_DIR, remembers which campaign is open for the whole app
 export const ACTIVE_CAMPAIGN_FILE = '.active-campaign.json';
