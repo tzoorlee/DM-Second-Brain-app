@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 
+export { splitDmSecrets } from './secrets';
+
 export interface EntityFrontmatter {
   type?: string;
   tags?: string[];
@@ -69,16 +71,6 @@ function walkMarkdownFiles(dir: string, wikiDir: string, fileList: WikiFile[] = 
 export function listWikiFiles(): WikiFile[] {
   const wikiDir = path.join(getCampaignRoot(), 'wiki');
   return walkMarkdownFiles(wikiDir, wikiDir);
-}
-
-const DM_SECRETS_HEADING = /^## Secrets \(DM only\)[\s\S]*$/im;
-
-// Splits a page body into what players may see and the inline
-// `## Secrets (DM only)` section, which by convention runs to the end of the page.
-export function splitDmSecrets(body: string): { publicBody: string; dmBody: string } {
-  const match = body.match(DM_SECRETS_HEADING);
-  if (!match || match.index === undefined) return { publicBody: body, dmBody: '' };
-  return { publicBody: body.slice(0, match.index).trimEnd(), dmBody: match[0] };
 }
 
 // Whether a page may be shown in player-safe mode: never `secrets/` pages

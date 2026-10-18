@@ -44,11 +44,19 @@ and rebuilt automatically whenever a wiki page is added, changed or removed.
 - Titles weigh more than tags, tags more than body text.
 - Filters by `type`, `canon_status` and `status` (options come from your own frontmatter).
 - **Player Safe** mode hides `secrets/` pages and entities with `pg_known: false`, and
-  never matches text inside `## Secrets (DM only)` sections.
+  never matches text inside DM-only sections: `## Secrets (DM only)`, or any level-2
+  heading that names the DM or GM, such as `## Segreti (solo DM)`. Such a section runs
+  to the end of the page.
 - `_template-*.md` starters, `index.md` and `log.md` are not listed.
 
 `GET /api/search` accepts `q`, `mode` (`dm` or `player`; anything else is treated as
 `player`), `type`, `canon` and `status`.
+
+`GET /api/entity` returns one page and accepts `path` (as returned by search) and `mode`,
+with the same player-safe default. In player mode it answers 404 for hidden pages, the
+same as for missing ones, and removes the DM-only section on the server. It only serves
+pages the search index lists, never `index.md`, `log.md`, templates or files outside
+`wiki/`.
 
 ## Project Structure
 

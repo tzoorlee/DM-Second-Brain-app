@@ -1,4 +1,5 @@
 import React from 'react';
+import { isDmSecretsHeading, splitDmSecrets } from '../utils/secrets';
 
 // A small markdown renderer for wiki pages. It covers what the page templates
 // use (headings, lists, quotes, rules, bold/italic/code, [[wikilinks]]) and
@@ -127,8 +128,9 @@ export function WikiInline({ text, ...links }: LinkProps & { text: string }) {
 }
 
 export default function WikiMarkdown({ body, title, dmMode, ...links }: WikiMarkdownProps) {
-  // Player Safe drops the inline DM-only section and everything after it
-  const visibleBody = dmMode ? body : body.replace(/## Secrets \(DM only\)[\s\S]*$/i, '');
+  // The server already strips the DM-only section in Player Safe; strip it here
+  // too so a page fetched in DM View never shows secrets after switching
+  const visibleBody = dmMode ? body : splitDmSecrets(body).publicBody;
   const blocks = parseBlocks(visibleBody);
 
   // The sheet already shows the title, so skip a leading H1 that repeats it
@@ -143,7 +145,7 @@ export default function WikiMarkdown({ body, title, dmMode, ...links }: WikiMark
         const inline = (text: string) => renderInline(text, links, `${idx}-`);
         switch (block.kind) {
           case 'heading': {
-            const isSecrets = block.level === 2 && /secrets \(dm only\)/i.test(block.text);
+            const isSecrets = block.level === 2 && isDmSecretsHeading(`## ${block.text}`);
             const Tag = `h${Math.min(block.level, 4)}` as 'h1' | 'h2' | 'h3' | 'h4';
             return (
               <Tag key={idx} className={isSecrets ? 'secrets-heading' : undefined}>

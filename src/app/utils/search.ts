@@ -106,3 +106,19 @@ export function searchEntities(query: string, mode: SearchMode, filters: SearchF
     .filter(keep)
     .map(toSummary);
 }
+
+export interface EntityPage extends EntitySummary {
+  body: string;
+}
+
+// One page for the entity sheet. Only pages the search index knows about can be
+// read, so meta files, templates and paths outside wiki/ are never served. In
+// player mode a hidden page is reported as missing and the DM-only section is
+// removed before the text leaves the server.
+export function getEntity(relativePath: string, mode: SearchMode): EntityPage | null {
+  const entity = getIndex().entities.get(relativePath);
+  if (!entity) return null;
+  if (mode === 'player' && !isPlayerVisible(entity)) return null;
+  const body = mode === 'player' ? splitDmSecrets(entity.body).publicBody : entity.body;
+  return { ...toSummary(entity), body };
+}

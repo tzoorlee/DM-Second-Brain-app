@@ -25,7 +25,6 @@ interface EntitySummary {
 }
 
 interface Entity extends EntitySummary {
-  absolutePath: string;
   body: string;
 }
 
@@ -210,11 +209,16 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Switching secrets mode changes which pages exist for links and autocomplete
-  const handleSetDmMode = (nextDmMode: boolean) => {
+  // Switching secrets mode changes which pages exist for links and autocomplete,
+  // and what the open page may show: re-read it in the new mode
+  const handleSetDmMode = async (nextDmMode: boolean) => {
     if (nextDmMode === dmMode) return;
+    const nextMode = nextDmMode ? 'dm' : 'player';
     setDmMode(nextDmMode);
-    fetchAllEntities(nextDmMode ? 'dm' : 'player');
+    fetchAllEntities(nextMode);
+    if (selectedEntity && !(await loadEntity(selectedEntity.relativePath, nextMode, false))) {
+      setSelectedEntity(null);
+    }
   };
 
   // Re-run the search shortly after the query or a filter changes
@@ -233,13 +237,14 @@ export default function Dashboard() {
     setSelectedStatus('all');
   };
 
-  const loadEntity = async (relativePath: string) => {
+  const loadEntity = async (relativePath: string, forMode: 'dm' | 'player' = mode, showSheet = true) => {
     try {
-      const res = await fetch(`/api/entity?path=${encodeURIComponent(relativePath)}`);
+      const params = new URLSearchParams({ path: relativePath, mode: forMode });
+      const res = await fetch(`/api/entity?${params}`);
       const data = await res.json();
       if (!data.error) {
         setSelectedEntity(data);
-        setActivePanel('sheet');
+        if (showSheet) setActivePanel('sheet');
         return true;
       }
     } catch (e: unknown) {
