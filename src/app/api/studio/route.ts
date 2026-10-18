@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getStudioModel } from '../../utils/studio-model';
 import { loadStep } from '../../utils/studio-state';
-import { campaignHasSessions, STUDIO_STEPS } from '../../utils/studio-steps';
+import fs from 'fs';
+import path from 'path';
+import { campaignHasSessions, STUDIO_STEPS, WORLD_BIBLE } from '../../utils/studio-steps';
+import { getField } from '../../utils/worldbible';
 import { getCampaignRoot } from '../../utils/vault';
 import { studioError } from './common';
 
@@ -10,10 +13,14 @@ export async function GET() {
   try {
     const root = getCampaignRoot();
     const model = getStudioModel();
+    const biblePath = path.join(root, WORLD_BIBLE);
+    const bible = fs.existsSync(biblePath) ? fs.readFileSync(biblePath, 'utf-8') : '';
     return NextResponse.json({
       aiAvailable: await model.available(),
       model: model.name,
       hasSessions: campaignHasSessions(),
+      published: /^(Published|Mixed)/i.test(getField(bible, 'Setting', 'World') ?? ''),
+      rulesEdition: getField(bible, 'Campaign', 'Rules edition'),
       ingestCommand: `cd "${root}" && claude "design ingest of raw/worldbuilding"`,
       steps: STUDIO_STEPS.map(step => {
         const state = loadStep(step.n);

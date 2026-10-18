@@ -57,7 +57,7 @@ describe('Studio API', () => {
 
   it('GET /api/studio describes the steps and the AI', async () => {
     const body = await (await getStudio()).json();
-    expect(body).toMatchObject({ aiAvailable: true, model: 'fake-model', hasSessions: false });
+    expect(body).toMatchObject({ aiAvailable: true, model: 'fake-model', hasSessions: false, published: true, rulesEdition: 'x' });
     expect(body.steps).toHaveLength(9);
     expect(body.steps[0]).toMatchObject({ n: 1, id: 'basics', status: 'todo' });
     expect(body.ingestCommand).toContain('claude "design ingest of raw/worldbuilding"');
