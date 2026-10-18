@@ -26,6 +26,8 @@ export async function PUT(request: Request, { params }: Context) {
     const body = await readJson(request);
     const state = withDraft(loadStep(n));
     if (typeof body.draft === 'string') state.draft = body.draft;
+    // "Clear conversation": the chat history goes, proposals, issues and usage stay
+    if (body.clearMessages === true) state.messages = [];
     if (typeof body.proposalId === 'string') {
       const proposal = state.proposals.find(p => p.id === body.proposalId);
       if (!proposal || !['accepted', 'rejected'].includes(body.proposalStatus as string)) throw new BadRequest('Unknown proposal or status.');

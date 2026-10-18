@@ -214,6 +214,12 @@ export async function runChatTurn(n: number, message: string, model: StudioModel
         emit({ type: 'error', message: 'The model declined this request. Try rephrasing it.' });
         return state;
       }
+      // A cut-off answer (token or context limit) could end in a tool call with no
+      // result, which would break every later turn: report it and keep nothing
+      if (reply.stop_reason !== 'end_turn' && reply.stop_reason !== 'tool_use' && reply.stop_reason !== 'stop_sequence') {
+        emit({ type: 'error', message: `The answer was cut off (${reply.stop_reason}). Try a shorter request, or clear the conversation.` });
+        return state;
+      }
       const assistant: MessageParam = { role: 'assistant', content: reply.content as MessageParam['content'] };
       sent.push(assistant);
       saved.push(assistant);
@@ -250,13 +256,20 @@ export async function runChatTurn(n: number, message: string, model: StudioModel
     return state;
   }
 
+  // Re-read: the DM may have edited the draft or decided on proposals while the
+  // model was answering. Only this exchange's own results are merged in.
+  const fresh = loadStep(n);
   const next: StepState = {
-    ...state,
-    status: state.status === 'todo' ? 'in-progress' : state.status,
+    ...fresh,
+    status: fresh.status === 'todo' ? 'in-progress' : fresh.status,
     messages: saved,
-    proposals: [...state.proposals, ...proposals],
-    inconsistencies: [...state.inconsistencies, ...inconsistencies],
-    usage,
+    proposals: [...fresh.proposals, ...proposals],
+    inconsistencies: [...fresh.inconsistencies, ...inconsistencies],
+    usage: {
+      input: fresh.usage.input + usage.input - state.usage.input,
+      output: fresh.usage.output + usage.output - state.usage.output,
+      cacheRead: fresh.usage.cacheRead + usage.cacheRead - state.usage.cacheRead,
+    },
   };
   saveStep(next);
   emit({ type: 'done', usage });
@@ -284,15 +297,17 @@ export async function approveStep(
   skipCheck: boolean,
 ): Promise<{ written: string[] } | { issues: Inconsistency[] }> {
   const step = getStep(n);
-  const state = loadStep(n);
   if (model && !skipCheck && step.kind !== 'srd') {
     const prompt = `NEW DRAFT (step ${n}: ${step.title})\n${draft}\n\nAPPROVED FILES AND ESTABLISHED WIKI\n${buildContext(n, draft, true)}`;
     const issues = (await model.checkCoherence(COHERENCE_SYSTEM, prompt)).map(toInconsistency);
     if (issues.length) {
-      saveStep({ ...state, draft, inconsistencies: [...state.inconsistencies.filter(i => i.status !== 'open'), ...issues] });
+      // Read after the check: the conversation may have moved on meanwhile
+      const current = loadStep(n);
+      saveStep({ ...current, draft, inconsistencies: [...current.inconsistencies.filter(i => i.status !== 'open'), ...issues] });
       return { issues };
     }
   }
+  const state = loadStep(n);
   const written = writeStepContent(n, draft);
   saveStep({
     ...state,

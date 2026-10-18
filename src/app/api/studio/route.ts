@@ -21,7 +21,8 @@ export async function GET() {
       hasSessions: campaignHasSessions(),
       published: /^(Published|Mixed)/i.test(getField(bible, 'Setting', 'World') ?? ''),
       rulesEdition: getField(bible, 'Campaign', 'Rules edition'),
-      ingestCommand: `cd "${root}" && claude "design ingest of raw/worldbuilding"`,
+      // Single quotes so $, ` and " in the path stay literal when pasted in a shell
+      ingestCommand: `cd '${root.replace(/'/g, `'\\''`)}' && claude "design ingest of raw/worldbuilding"`,
       steps: STUDIO_STEPS.map(step => {
         const state = loadStep(step.n);
         return { n: step.n, id: step.id, title: step.title, kind: step.kind, status: state.status, usage: state.usage };

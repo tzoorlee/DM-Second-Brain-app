@@ -58,13 +58,16 @@ export default function StudioChat({ step, aiAvailable, published, onChanged, on
     setError('');
     setMessage('');
     setPending([{ who: 'dm', text }, { who: 'ai', text: '' }]);
-    await studioApi.chat(step.n, text, event => {
-      if (event.type === 'text') setPending(p => [p[0], { who: 'ai', text: p[1].text + event.text }]);
-      if (event.type === 'error') setError(event.message);
-    });
-    setPending([]);
-    setBusy(false);
-    onChanged();
+    try {
+      await studioApi.chat(step.n, text, event => {
+        if (event.type === 'text') setPending(p => [p[0], { who: 'ai', text: p[1].text + event.text }]);
+        if (event.type === 'error') setError(event.message);
+      });
+    } finally {
+      setPending([]);
+      setBusy(false);
+      onChanged();
+    }
   };
 
   const resolve = async (issue: Inconsistency, action: 'here' | 'other' | 'keep' | 'deviation') => {
@@ -84,6 +87,12 @@ export default function StudioChat({ step, aiAvailable, published, onChanged, on
   };
 
   const open = step.inconsistencies.filter(i => i.status === 'open');
+
+  const clear = async () => {
+    if (!window.confirm('Clear this step\'s conversation? The draft, proposals and issues stay.')) return;
+    await studioApi.update(step.n, { clearMessages: true });
+    onChanged();
+  };
 
   return (
     <section className="studio-chat" aria-label="Chat">
@@ -125,7 +134,12 @@ export default function StudioChat({ step, aiAvailable, published, onChanged, on
           rows={3}
           disabled={busy}
         />
-        <button type="submit" disabled={busy || !message.trim()}>{busy ? 'Thinking…' : 'Send'}</button>
+        <div className="studio-send-actions">
+          <button type="submit" disabled={busy || !message.trim()}>{busy ? 'Thinking…' : 'Send'}</button>
+          {step.messages.length > 0 && (
+            <button type="button" className="secondary" onClick={clear} disabled={busy}>Clear conversation</button>
+          )}
+        </div>
       </form>
     </section>
   );

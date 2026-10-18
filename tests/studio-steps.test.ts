@@ -8,7 +8,7 @@ import {
   STUDIO_STEPS,
   writeStepContent,
 } from '../src/app/utils/studio-steps';
-import { getField, getSections } from '../src/app/utils/worldbible';
+import { addDeviation, getField, getSections, setField } from '../src/app/utils/worldbible';
 import { isolateEnv, makeCampaign, makeTempDir } from './helpers';
 
 const BIBLE = `# World Bible
@@ -82,6 +82,19 @@ describe('Studio steps', () => {
     expect(claude).toContain('> - **Output language:** Italiano\n');
     expect(claude).toContain('> - **Campaign name:** The Frozen North\n');
     expect(claude).toContain('Rules follow.');
+  });
+
+  it('step 1 keeps the Rules edition and Deviations other steps wrote', () => {
+    const draft = readStepContent(1);
+    let bible = read('raw/world-bible.md');
+    bible = setField(bible, 'Campaign', 'Rules edition', 'SRD 5.2.1');
+    bible = addDeviation(bible, 'Elminster is dead.');
+    fs.writeFileSync(path.join(root, 'raw', 'world-bible.md'), bible);
+    writeStepContent(1, draft.replace("(the campaign's name)", 'Frozen North'));
+    const after = read('raw/world-bible.md');
+    expect(getField(after, 'Campaign', 'Name')).toBe('Frozen North');
+    expect(getField(after, 'Campaign', 'Rules edition')).toBe('SRD 5.2.1');
+    expect(after).toContain('  - Elminster is dead.');
   });
 
   it('step 1 leaves CLAUDE.md alone while the fields are placeholders', () => {

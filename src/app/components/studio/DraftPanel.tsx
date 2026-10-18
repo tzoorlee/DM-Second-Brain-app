@@ -41,11 +41,15 @@ export default function DraftPanel({ step, title, fileLabel, onChanged }: DraftP
   };
 
   const decide = async (proposalId: string, proposalStatus: 'accepted' | 'rejected') => {
-    await save();
-    const updated = await studioApi.update(step.n, { proposalId, proposalStatus });
-    setText(updated.draft);
-    setDirty(false);
-    onChanged();
+    try {
+      await save();
+      const updated = await studioApi.update(step.n, { proposalId, proposalStatus });
+      setText(updated.draft);
+      setDirty(false);
+      onChanged();
+    } catch (err) {
+      setResult({ kind: 'error', message: (err as Error).message });
+    }
   };
 
   const approve = async (skipCheck: boolean) => {
@@ -96,15 +100,17 @@ export default function DraftPanel({ step, title, fileLabel, onChanged }: DraftP
         className="studio-draft-text"
         value={text}
         onChange={e => edit(e.target.value)}
-        onBlur={save}
+        onBlur={() => save().catch(err => setResult({ kind: 'error', message: (err as Error).message }))}
         aria-label="Draft text"
         spellCheck
       />
 
       <div className="studio-approve">
         {result && <p className={`studio-result ${result.kind}`} role="status">{result.message}</p>}
-        {result?.kind === 'issues' && (
-          <button type="button" className="secondary" onClick={() => approve(true)} disabled={busy}>Approve anyway</button>
+        {(result?.kind === 'issues' || result?.kind === 'error') && (
+          <button type="button" className="secondary" onClick={() => approve(true)} disabled={busy}>
+            {result.kind === 'issues' ? 'Approve anyway' : 'Approve without the check'}
+          </button>
         )}
         <button type="button" onClick={() => approve(false)} disabled={busy}>
           {busy ? 'Checking…' : step.status === 'approved' && !dirty ? 'Approve again' : 'Approve step'}

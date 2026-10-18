@@ -46,6 +46,14 @@ export const studioApi = {
 
   // Streams one chat exchange; calls onEvent for every NDJSON line
   async chat(n: number, message: string, onEvent: (e: StudioEvent) => void) {
+    try {
+      await this.streamChat(n, message, onEvent);
+    } catch {
+      onEvent({ type: 'error', message: 'The connection dropped before the answer was complete. Reload the page to see whether it was saved.' });
+    }
+  },
+
+  async streamChat(n: number, message: string, onEvent: (e: StudioEvent) => void) {
     const res = await send('/api/studio/chat', 'POST', { n, message });
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({}));

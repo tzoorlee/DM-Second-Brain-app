@@ -74,6 +74,8 @@ export function replaceSections(markdown: string, bodies: Record<string, string>
       const at = order.includes(heading) ? doc.sections.findIndex(s => later.includes(s.heading)) : -1;
       const section = { heading, body };
       if (at === -1) {
+        // A file with no sections yet (or no final newline) gets a blank line first
+        if (doc.sections.length === 0 && doc.preamble) doc.preamble = doc.preamble.replace(/\n*$/, '\n\n');
         const last = doc.sections[doc.sections.length - 1];
         if (last && !last.body.endsWith('\n\n')) last.body += last.body.endsWith('\n') ? '\n' : '\n\n';
         doc.sections.push(section);

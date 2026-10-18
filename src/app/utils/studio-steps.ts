@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getCampaignRoot } from './vault';
-import { getField, getSections, replaceSections } from './worldbible';
+import { addDeviation, getField, getSections, replaceSections, setField } from './worldbible';
 
 export type StepKind = 'worldbible' | 'file' | 'worldbuilding' | 'srd' | 'summary';
 
@@ -105,6 +105,24 @@ export function readStepContent(n: number): string {
 
 const isPlaceholder = (value: string | null) => !value || value.startsWith('(');
 
+// Step 1 owns ## Campaign and ## Setting, but step 6 writes "Rules edition" and
+// "Keep as deviation" adds Deviations: a step-1 draft written before those must not undo them
+function keepOtherStepsFields(before: string, after: string): string {
+  let next = after;
+  const edition = getField(before, 'Campaign', 'Rules edition');
+  if (!isPlaceholder(edition)) next = setField(next, 'Campaign', 'Rules edition', edition!);
+  const deviations = (text: string) => {
+    const body = getSections(text, ['Setting']).Setting.split('\n');
+    const at = body.findIndex(l => l.startsWith('- **Deviations from the published canon**'));
+    const items: string[] = [];
+    for (let i = at + 1; at !== -1 && i < body.length && body[i].startsWith('  - '); i++) items.push(body[i].slice(4));
+    return items.filter(d => !/^\(.*\)$/.test(d));
+  };
+  const present = new Set(deviations(next));
+  for (const d of deviations(before)) if (!present.has(d)) next = addDeviation(next, d);
+  return next;
+}
+
 // CLAUDE.md's configuration block: "> - **Output language:** …" and "> - **Campaign name:** …"
 function updateClaudeConfig(bible: string): boolean {
   const rel = 'CLAUDE.md';
@@ -131,7 +149,8 @@ export function writeStepContent(n: number, draft: string): string[] {
     const owned = step.headings!.filter(h => hasHeading(draft, h));
     const sections = getSections(draft, owned);
     const current = readRel(WORLD_BIBLE) || '# World Bible\n\n';
-    const bible = replaceSections(current, sections);
+    let bible = replaceSections(current, sections);
+    if (n === 1) bible = keepOtherStepsFields(current, bible);
     writeFileAtomic(resolveInCampaign(WORLD_BIBLE), bible);
     const written = [WORLD_BIBLE];
     if (n === 1 && updateClaudeConfig(bible)) written.push('CLAUDE.md');

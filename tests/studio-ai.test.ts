@@ -12,7 +12,7 @@ import {
   StudioModel,
   TurnParams,
 } from '../src/app/utils/studio-ai';
-import { loadStep } from '../src/app/utils/studio-state';
+import { loadStep, saveStep } from '../src/app/utils/studio-state';
 import { isolateEnv, makeCampaign, makeTempDir, writePage } from './helpers';
 
 type Block = Anthropic.Beta.Messages.BetaContentBlock;
@@ -180,6 +180,25 @@ describe('Studio AI', () => {
     await approveStep(5, '# House Rules\n- New crit rule.\n', model, false);
     expect(model.coherencePrompts[0]).not.toContain('Old crit rule');
     expect(model.coherencePrompts[0]).toContain('New crit rule');
+  });
+
+  it('a chat turn keeps draft edits saved while it was running', async () => {
+    const model = new FakeModel([
+      () => {
+        saveStep({ ...loadStep(2), draft: '## Tone and Atmosphere\n- Edited meanwhile.\n' });
+        return message([text('ok')]);
+      },
+    ]);
+    await chat(2, 'hello', model);
+    expect(loadStep(2).draft).toBe('## Tone and Atmosphere\n- Edited meanwhile.\n');
+    expect(loadStep(2).messages).toHaveLength(2);
+  });
+
+  it('a cut-off answer is reported and not saved', async () => {
+    const model = new FakeModel([() => message([toolUse('t1', 'propose_edit', { section: 'Tone' })], 'max_tokens')]);
+    const events = await chat(2, 'hello', model);
+    expect(events.at(-1)).toMatchObject({ type: 'error', message: expect.stringContaining('cut off') });
+    expect(loadStep(2).messages).toEqual([]);
   });
 
   it('approval without a model writes directly', async () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import DraftPanel from '../components/studio/DraftPanel';
 import SrdStep from '../components/studio/SrdStep';
 import StepList from '../components/studio/StepList';
@@ -22,19 +22,22 @@ export default function StudioPage() {
   const [step, setStep] = useState<StepWithDraft | null>(null);
   const [tab, setTab] = useState<Tab>('chat');
   const [error, setError] = useState('');
+  // The step on screen now: a chat that ends after the DM switched steps refreshes this one
+  const currentRef = useRef<number | null>(null);
 
   const refresh = useCallback(async (n?: number) => {
     try {
       const next = await studioApi.overview();
       setOverview(next);
-      const target = n ?? current ?? next.steps.find(s => s.status !== 'approved')?.n ?? 1;
+      const target = n ?? currentRef.current ?? next.steps.find(s => s.status !== 'approved')?.n ?? 1;
+      currentRef.current = target;
       setCurrent(target);
       setStep(await studioApi.step(target));
       setError('');
     } catch (err) {
       setError((err as Error).message);
     }
-  }, [current]);
+  }, []);
 
   // Open the step in the URL (?step=4), or the first one not approved yet
   useEffect(() => {
@@ -47,6 +50,7 @@ export default function StudioPage() {
   }, []);
 
   const select = (n: number) => {
+    currentRef.current = n;
     setStep(null);
     refresh(n);
     setTab('chat');

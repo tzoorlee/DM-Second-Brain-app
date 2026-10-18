@@ -102,6 +102,12 @@ describe('world-bible sections', () => {
     expect(out.startsWith(HAND.slice(0, HAND.indexOf('## Things')))).toBe(true);
   });
 
+  it('adds sections to a file without a final newline', () => {
+    const once = replaceSections('# World Bible', { Campaign: '- **Name**: X\n' });
+    expect(once).toBe('# World Bible\n\n## Campaign\n- **Name**: X\n');
+    expect(replaceSections(once, { Campaign: '- **Name**: Y\n' }).match(/## Campaign/g)).toHaveLength(1);
+  });
+
   it('keeps CRLF line endings', () => {
     const crlf = HAND.replace(/\n/g, '\r\n');
     const out = replaceSections(crlf, { 'Lore Pillars (immutable truths)': '- Death is final.\n' });

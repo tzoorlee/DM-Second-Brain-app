@@ -1290,3 +1290,9 @@ button.campaign-switcher[aria-expanded='true'] .campaign-switcher-caret {
 .campaign-menu-list .campaign-menu-link:hover {
   background: var(--bg-glass-hover);
 }
+
+.studio-send-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

@@ -60,7 +60,7 @@ describe('Studio API', () => {
     expect(body).toMatchObject({ aiAvailable: true, model: 'fake-model', hasSessions: false, published: true, rulesEdition: 'x' });
     expect(body.steps).toHaveLength(9);
     expect(body.steps[0]).toMatchObject({ n: 1, id: 'basics', status: 'todo' });
-    expect(body.ingestCommand).toContain('claude "design ingest of raw/worldbuilding"');
+    expect(body.ingestCommand).toBe(`cd '${root}' && claude "design ingest of raw/worldbuilding"`);
   });
 
   it('GET a step returns its draft from the files', async () => {
@@ -74,6 +74,13 @@ describe('Studio API', () => {
     const body = await (await putStep(put({ proposalId: 'p1', proposalStatus: 'accepted' }), ctx(4))).json();
     expect(body.draft).toContain('- Hard consonants.');
     expect(body.proposals[0].status).toBe('accepted');
+  });
+
+  it('PUT can clear a conversation', async () => {
+    saveStep({ ...loadStep(4), messages: [{ role: 'user', content: 'hi' }], usage: { input: 5, output: 5, cacheRead: 0 } });
+    const body = await (await putStep(put({ clearMessages: true }), ctx(4))).json();
+    expect(body.messages).toEqual([]);
+    expect(body.usage).toEqual({ input: 5, output: 5, cacheRead: 0 });
   });
 
   it('chat streams NDJSON events', async () => {
