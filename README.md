@@ -1,6 +1,6 @@
 # DM-Second-Brain App
 
-![version](https://img.shields.io/badge/version-0.5.0-blue)
+![version](https://img.shields.io/badge/version-0.5.1-blue)
 ![vault format](https://img.shields.io/badge/vault%20format-1-purple)
 
 A local companion app for campaigns built with the
@@ -39,16 +39,19 @@ CAMPAIGNS_DIR=~/campaigns
 ```
 
 The app lists every subfolder that has a `wiki/` folder and a lowercase name made of
-letters, numbers and dashes (`my-campaign`). Pick one to open it; the choice is saved in
+letters, numbers and dashes (`my-campaign`); a symlink to a campaign folder counts too.
+Pick one to open it; the choice is saved in
 `CAMPAIGNS_DIR/.active-campaign.json`, so the app reopens it next time, for every
 browser. Switch campaign from the menu on the campaign's name, at the top of the wiki
-panel.
+panel; it also has shortcuts to create a campaign and to manage them.
 
 **New campaign** creates a subfolder from the
 [template](https://github.com/tzoorlee/DM-Second-Brain): the app downloads the template
 release it is built for (currently `v0.4.0`) from GitHub, so it needs an internet
 connection. The new campaign gets the template's `CLAUDE.md`, `wiki/`, `raw/`, `output/`,
-`dm-second-brain.json` and `.gitignore`, and is opened right away. To version it, run
+`dm-second-brain.json` and `.gitignore`, and is opened right away. The folder name comes
+from the campaign name; names in other scripts (say "Дракон") get `campaign`,
+`campaign-2`, ... and keep their title. To version it, run
 `git init` inside it and keep the repository private: `secrets/` is not ignored.
 
 ### A single campaign
@@ -117,8 +120,8 @@ Campaigns are named by their folder name (the *id*), never by a path.
 - `GET /api/campaigns` returns the mode (`campaigns-dir`, `vault-path` or `unconfigured`),
   the open campaign's id and title, and the campaigns in `CAMPAIGNS_DIR`.
 - `POST /api/campaigns` with `{ "name": "..." }` creates a campaign from the template and
-  opens it. `POST /api/campaigns/active` with `{ "id": "..." }` opens another campaign.
-  Both answer `409` when `VAULT_PATH` is set.
+  opens it. `POST /api/campaigns/active` with `{ "id": "..." }` opens another campaign
+  (`404` for an unknown id). Both answer `409` when `VAULT_PATH` is set.
 
 ## Project structure
 

@@ -118,8 +118,8 @@ export default function Dashboard() {
   const [activePanel, setActivePanel] = useState<PanelId>('wiki');
   const [vault, setVault] = useState<VaultInfo | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignsInfo | null>(null);
-  // "Manage campaigns…" shows the campaign list over the dashboard
-  const [managing, setManaging] = useState(false);
+  // "Manage campaigns…" or "+ New campaign" shows the campaign list over the dashboard
+  const [managing, setManaging] = useState<false | 'list' | 'new'>(false);
 
   // Note-taking state
   const [sessionTitle, setSessionTitle] = useState('');
@@ -245,12 +245,13 @@ export default function Dashboard() {
     }
   };
 
-  // Re-run the search shortly after the query or a filter changes
+  // Re-run the search shortly after the query or a filter changes, once a campaign is open
   useEffect(() => {
+    if (!vault?.ok) return;
     const timer = setTimeout(fetchResults, 150);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedType, selectedCanon, selectedStatus, dmMode]);
+  }, [vault, searchQuery, selectedType, selectedCanon, selectedStatus, dmMode]);
 
   const hasActiveFilters = searchQuery !== '' || selectedType !== 'all' || selectedCanon !== 'all' || selectedStatus !== 'all';
 
@@ -445,7 +446,9 @@ export default function Dashboard() {
   // Nothing to show until the campaign has been checked, or if it can't be opened
   if (!vault) return null;
   if (!vault.ok) return <VaultSetup problem={vault.problem} message={vault.message} campaigns={campaigns} />;
-  if (managing) return <VaultSetup campaigns={campaigns} onBack={() => setManaging(false)} />;
+  if (managing) {
+    return <VaultSetup campaigns={campaigns} focusNewCampaign={managing === 'new'} onBack={() => setManaging(false)} />;
+  }
 
   return (
     <div className="dashboard-grid">
@@ -467,7 +470,7 @@ export default function Dashboard() {
       {/* COLUMN 1: WIKI BROWSER */}
       <section className={panelClass('wiki')} aria-label="Campaign wiki">
         <div className="panel-header">
-          <CampaignMenu info={campaigns} onManage={() => setManaging(true)} />
+          <CampaignMenu info={campaigns} onManage={(view) => setManaging(view)} />
         </div>
         {vault.warning && <div className="vault-warning" role="note">{vault.warning}</div>}
         <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

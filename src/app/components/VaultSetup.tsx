@@ -15,9 +15,11 @@ interface VaultSetupProps {
   campaigns: CampaignsInfo | null;
   // Set when opened from the dashboard
   onBack?: () => void;
+  // Opened with "+ New campaign": put the cursor in the name field
+  focusNewCampaign?: boolean;
 }
 
-export default function VaultSetup({ problem, message, campaigns, onBack }: VaultSetupProps) {
+export default function VaultSetup({ problem, message, campaigns, onBack, focusNewCampaign }: VaultSetupProps) {
   const needsAppUpdate = problem === 'unsupported-format';
   const templateLink = <a href={TEMPLATE_URL} target="_blank" rel="noreferrer">DM-Second-Brain template</a>;
   const updateText = (
@@ -45,7 +47,7 @@ export default function VaultSetup({ problem, message, campaigns, onBack }: Vaul
           {problem === 'campaigns-dir-not-found' || problem === 'campaigns-dir-unreadable' ? (
             <p>Create or fix that folder, or change <code>CAMPAIGNS_DIR</code> in <code>.env.local</code>, then reload this page.</p>
           ) : (
-            <CampaignPicker info={campaigns} />
+            <CampaignPicker info={campaigns} focusNewCampaign={focusNewCampaign} />
           )}
         </div>
       </main>

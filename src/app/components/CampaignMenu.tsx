@@ -5,17 +5,19 @@ import type { CampaignsInfo } from '../utils/campaigns';
 
 interface CampaignMenuProps {
   info: CampaignsInfo | null;
-  onManage: () => void;
+  // 'list' for "Manage campaigns…", 'new' for "+ New campaign"
+  onManage: (view: 'list' | 'new') => void;
 }
 
 // The open campaign's name in the wiki panel header. With CAMPAIGNS_DIR it opens a
-// menu to switch campaign; with VAULT_PATH the campaign is fixed and it's a plain heading.
+// menu to switch campaign; with VAULT_PATH the campaign is fixed and nothing opens.
 export default function CampaignMenu({ info, onManage }: CampaignMenuProps) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
-  const title = `📖 ${info?.activeTitle || 'Campaign Wiki'}`;
+  const title = info?.activeTitle || 'Campaign Wiki';
+  const switchable = info?.mode === 'campaigns-dir';
 
   // Escape and a click outside close the menu
   useEffect(() => {
@@ -32,11 +34,16 @@ export default function CampaignMenu({ info, onManage }: CampaignMenuProps) {
     };
   }, [open]);
 
-  if (info?.mode !== 'campaigns-dir') {
-    return <h2 className="campaign-heading">{title}</h2>;
-  }
+  const label = (
+    <span className="campaign-switcher-text">
+      <span className="campaign-switcher-label">📖 Campaign</span>
+      <span className="campaign-heading">{title}</span>
+    </span>
+  );
 
-  const others = info.campaigns.filter(c => c.id !== info.activeId && c.supported);
+  if (!switchable) {
+    return <h2 className="campaign-switcher campaign-switcher-fixed">{label}</h2>;
+  }
 
   // Switching changes the campaign for the whole app; the session draft survives
   // the reload because it lives in localStorage
@@ -60,40 +67,52 @@ export default function CampaignMenu({ info, onManage }: CampaignMenuProps) {
     setPending(null);
   };
 
+  const manage = (view: 'list' | 'new') => {
+    setOpen(false);
+    onManage(view);
+  };
+
   return (
     <div className="campaign-menu" ref={menuRef}>
       <button
         type="button"
-        className="campaign-menu-button"
+        className="campaign-switcher"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <span className="campaign-heading">{title}</span>
-        <span aria-hidden="true">▾</span>
+        {label}
+        <span className="campaign-switcher-caret" aria-hidden="true">▾</span>
       </button>
       {open && (
         <div className="campaign-menu-list glass" role="menu">
-          {others.map(campaign => (
-            <button
-              key={campaign.id}
-              type="button"
-              role="menuitem"
-              disabled={pending !== null}
-              onClick={() => openCampaign(campaign.id)}
-            >
-              {pending === campaign.id ? 'Opening…' : campaign.title}
-            </button>
-          ))}
-          <button
-            type="button"
-            role="menuitem"
-            className="campaign-menu-manage"
-            onClick={() => {
-              setOpen(false);
-              onManage();
-            }}
-          >
+          {info.campaigns.filter(c => c.supported).map(campaign => {
+            const current = campaign.id === info.activeId;
+            return (
+              <button
+                key={campaign.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={current}
+                className={current ? 'current' : undefined}
+                disabled={pending !== null}
+                onClick={() => (current ? setOpen(false) : openCampaign(campaign.id))}
+              >
+                <span className="campaign-menu-check" aria-hidden="true">{current ? '✓' : ''}</span>
+                <span className="campaign-menu-item-text">
+                  <span className="campaign-title">{pending === campaign.id ? 'Opening…' : campaign.title}</span>
+                  <span className="campaign-id">{campaign.id}</span>
+                </span>
+              </button>
+            );
+          })}
+          <div className="campaign-menu-separator" role="separator" />
+          <button type="button" role="menuitem" className="campaign-menu-action" onClick={() => manage('new')}>
+            <span className="campaign-menu-check" aria-hidden="true">+</span>
+            New campaign
+          </button>
+          <button type="button" role="menuitem" className="campaign-menu-action" onClick={() => manage('list')}>
+            <span className="campaign-menu-check" aria-hidden="true" />
             Manage campaigns…
           </button>
           {error && <div className="campaign-menu-error" role="alert">{error}</div>}
