@@ -1261,3 +1261,32 @@ button.campaign-switcher[aria-expanded='true'] .campaign-switcher-caret {
   cursor: not-allowed;
   box-shadow: none;
 }
+
+.campaign-fixed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.campaign-studio-link {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--accent-gold);
+}
+
+.campaign-menu-list .campaign-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.campaign-menu-list .campaign-menu-link:hover {
+  background: var(--bg-glass-hover);
+}

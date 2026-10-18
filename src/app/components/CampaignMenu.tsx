@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useEffect, useRef, useState } from 'react';
 import type { CampaignsInfo } from '../utils/campaigns';
 
@@ -42,7 +43,12 @@ export default function CampaignMenu({ info, onManage }: CampaignMenuProps) {
   );
 
   if (!switchable) {
-    return <h2 className="campaign-switcher campaign-switcher-fixed">{label}</h2>;
+    return (
+      <div className="campaign-fixed">
+        <h2 className="campaign-switcher campaign-switcher-fixed">{label}</h2>
+        <Link href="/studio" className="campaign-studio-link">World Studio</Link>
+      </div>
+    );
   }
 
   // Switching changes the campaign for the whole app; the session draft survives
@@ -111,6 +117,10 @@ export default function CampaignMenu({ info, onManage }: CampaignMenuProps) {
             <span className="campaign-menu-check" aria-hidden="true">+</span>
             New campaign
           </button>
+          <Link href="/studio" role="menuitem" className="campaign-menu-action campaign-menu-link">
+            <span className="campaign-menu-check" aria-hidden="true">✦</span>
+            World Studio
+          </Link>
           <button type="button" role="menuitem" className="campaign-menu-action" onClick={() => manage('list')}>
             <span className="campaign-menu-check" aria-hidden="true" />
             Manage campaigns…

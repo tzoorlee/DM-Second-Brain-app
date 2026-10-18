@@ -1,6 +1,6 @@
 # DM-Second-Brain App
 
-![version](https://img.shields.io/badge/version-0.6.1-blue)
+![version](https://img.shields.io/badge/version-0.7.0-blue)
 ![vault format](https://img.shields.io/badge/vault%20format-1-purple)
 
 A local companion app for campaigns built with the
@@ -47,7 +47,7 @@ panel; it also has shortcuts to create a campaign and to manage them.
 
 **New campaign** creates a subfolder from the
 [template](https://github.com/tzoorlee/DM-Second-Brain): the app downloads the template
-release it is built for (currently `v0.5.1`) from GitHub, so it needs an internet
+release it is built for (currently `v0.6.0`) from GitHub, so it needs an internet
 connection. The new campaign gets the template's `CLAUDE.md`, `wiki/`, `raw/`, `output/`,
 `TEMPLATES.md`, `dm-second-brain.json` and `.gitignore`, and is opened right away. The folder name comes
 from the campaign name; names in other scripts (say "Дракон") get `campaign`,
@@ -79,10 +79,40 @@ A campaign declares its format in `dm-second-brain.json` at its root, for exampl
 | 0.4.x       | 1             |
 | 0.5.x       | 1             |
 | 0.6.x       | 1             |
+| 0.7.x       | 1             |
 
 If a campaign has no `dm-second-brain.json` (made before template 0.4.0), the app assumes
 format 1 and shows a small notice. It refuses formats it doesn't know rather than guess,
 because a newer format could mark secrets in a way this version doesn't hide.
+
+## World Studio
+
+Open **World Studio** from the campaign menu (or right after creating a campaign) to build
+your world in nine steps: basics, tone and pillars, geography and cosmology, naming, house
+rules, the SRD, worldbuilding, the starting point, and a summary. Each step is a chat with
+an AI partner next to a live draft of the file it writes:
+
+- you write what you have in mind and discuss it; the AI proposes changes to the draft,
+  which you accept or reject, and points out contradictions with earlier steps (and, once
+  you have played, with the wiki);
+- **Approve step** runs a last coherence check and writes the draft to `raw/`
+  (`world-bible.md` by section, `house-rules.md`, `worldbuilding/`); the AI never writes
+  files itself;
+- the SRD step downloads the 2014 (5.1) or 2024 (5.2.1) rules reference into `raw/srd/`,
+  from pinned CC-BY-4.0 markdown conversions, with the attribution;
+- the summary gives you the command for the agent's design ingest.
+
+Works with a published setting too: the steps then help you adapt it and record your
+deviations from the published canon.
+
+**AI credentials**: set `ANTHROPIC_API_KEY` in `.env.local`, or run `ant auth login`. The
+Studio uses `claude-opus-5` (change it with `STUDIO_MODEL`). Each message costs a few cents
+on your Anthropic account; the Studio shows the tokens each step used. Without credentials
+the Studio still works: you write the drafts by hand.
+
+**Privacy**: your campaign files and the conversation are sent to Anthropic to answer each
+message. Drafts and conversations are saved in the campaign's `.dm-second-brain/` folder;
+the agent ignores it.
 
 ## Features
 
@@ -125,6 +155,8 @@ Campaigns are named by their folder name (the *id*), never by a path.
   same as for missing ones, and removes the DM-only section on the server. It only serves
   pages the search index lists.
 - `GET /api/session` returns the next session number. `POST /api/session` saves a recap.
+- `/api/studio/*`: the World Studio (overview, steps, chat as NDJSON, approve, SRD,
+  deviations). Steps are numbers; the browser never sends paths.
 - `GET /api/campaigns` returns the mode (`campaigns-dir`, `vault-path` or `unconfigured`),
   the open campaign's id and title, and the campaigns in `CAMPAIGNS_DIR`.
 - `POST /api/campaigns` with `{ "name": "..." }` creates a campaign from the template and

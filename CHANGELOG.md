@@ -7,6 +7,21 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.7.0] - 2026-10-18
+
+### Added
+
+- **World Studio** (`/studio`): build the world in nine steps, each a chat with an AI partner (Claude Opus 5) next to a live draft. The AI proposes edits you accept or reject and reports contradictions with earlier steps, the wiki and published lore; approving a step runs a coherence check and writes the draft to `raw/`.
+- Step 1 form for the campaign basics (name, language, starting level, start date, homebrew / published / mixed setting); it also sets `CLAUDE.md`'s language and campaign name.
+- House-rules checklist with common variants.
+- **SRD download**: SRD 5.1 or 5.2.1 into `raw/srd/`, pinned markdown conversions (CC-BY-4.0) with an `ATTRIBUTION.md`.
+- "Keep as deviation" adds a published-lore warning to the world-bible's deviations.
+- World Studio in the campaign menu, and an offer to open it after creating a campaign.
+
+### Changed
+
+- New campaigns use template `v0.6.0` (interludes, setting reference, world-bible Campaign and Setting sections).
+
 ## [0.6.1] - 2026-10-18
 
 ### Changed

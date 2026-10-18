@@ -9,6 +9,8 @@ export default function CampaignPicker({ info, focusNewCampaign = false }: { inf
   const [name, setName] = useState('');
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<{ where: 'list' | 'form'; message: string } | null>(null);
+  // Set after a campaign is created: offer the World Studio before the dashboard
+  const [created, setCreated] = useState(false);
 
   const send = async (url: string, body: object, where: 'list' | 'form', key: string) => {
     setPending(key);
@@ -16,7 +18,12 @@ export default function CampaignPicker({ info, focusNewCampaign = false }: { inf
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (res.ok) {
-        window.location.reload();
+        if (key === 'create') {
+          setCreated(true);
+          setPending(null);
+        } else {
+          window.location.reload();
+        }
         return;
       }
       const data = await res.json().catch(() => ({}));
@@ -32,6 +39,19 @@ export default function CampaignPicker({ info, focusNewCampaign = false }: { inf
     if (!name.trim() || pending) return;
     send('/api/campaigns', { name }, 'form', 'create');
   };
+
+  if (created) {
+    return (
+      <div className="campaign-picker campaign-created" role="status">
+        <p><strong>{name.trim()}</strong> is ready. Prepare the world now?</p>
+        <p className="campaign-form-hint">The World Studio guides you through tone, geography, rules and the first adventure, with an AI partner if you have credentials.</p>
+        <div className="campaign-form-row">
+          <button type="button" onClick={() => { window.location.href = '/studio'; }}>Open the World Studio</button>
+          <button type="button" className="secondary" onClick={() => window.location.reload()}>Later</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="campaign-picker">
