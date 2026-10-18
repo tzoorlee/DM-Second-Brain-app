@@ -6,6 +6,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { getEntity, searchEntities } from './search';
 import { COHERENCE_SYSTEM, ITEM_BRIEFS, STEP_BRIEFS, STUDIO_ROLE } from './studio-prompts';
+import { inheritedContext } from './studio-inherited';
 import { Inconsistency, loadStep, Proposal, saveStep, StepState } from './studio-state';
 import { campaignHasSessions, getStep, readStepContent, WORLD_BIBLE, WORLDBUILDING_TOPICS, writeStepContent } from './studio-steps';
 import { getCampaignRoot } from './vault';
@@ -88,7 +89,7 @@ export function ownedSections(n: number): string[] | null {
   const step = getStep(n);
   if (step.kind === 'worldbible') return step.headings!;
   if (step.kind === 'worldbuilding') return [...WORLDBUILDING_TOPICS];
-  if (step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude') return null;
+  if (step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude' || step.kind === 'inherited') return null;
   return [];
 }
 
@@ -112,7 +113,11 @@ export function buildSystem(n: number): TextBlockParam[] {
   const brief = item ? ITEM_BRIEFS[step.kind as 'prepare' | 'interlude'] : STEP_BRIEFS[n];
   const owned = ownedSections(n);
   const lines = [
-    item ? `Current task: ${step.kind === 'prepare' ? 'Prepare' : 'Interlude'} — "${step.title}" (${step.file}).` : `Current step: ${n} of 9 — ${step.title}.`,
+    item
+      ? `Current task: ${step.kind === 'prepare' ? 'Prepare' : 'Interlude'} — "${step.title}" (${step.file}).`
+      : n === 0
+        ? `Current step: Inherited world (before step 1) — ${step.file}.`
+        : `Current step: ${n} of 9 — ${step.title}.`,
     `Goal: ${brief.goal}`,
     owned === null
       ? 'The draft is a whole file: you may propose any of its "## " sections.'
@@ -149,7 +154,7 @@ export function buildContext(n: number, message: string, replacing = false): str
   // Files the step itself rewrites, left out when checking its new draft
   const replaced = (rel: string) =>
     replacing &&
-    (((step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude') && rel === step.file) ||
+    (((step.kind === 'file' || step.kind === 'prepare' || step.kind === 'interlude' || step.kind === 'inherited') && rel === step.file) ||
       (step.kind === 'worldbuilding' && WORLDBUILDING_TOPICS.some(t => rel === `raw/worldbuilding/${t.toLowerCase()}.md`)));
   if (!replaced('raw/house-rules.md')) add('raw/house-rules.md', readIfExists('raw/house-rules.md'));
   const wb = path.join(getCampaignRoot(), 'raw', 'worldbuilding');
@@ -165,6 +170,9 @@ export function buildContext(n: number, message: string, replacing = false): str
       if (!replaced(`raw/interludes/${f}`)) add(`raw/interludes/${f}`, readIfExists(`raw/interludes/${f}`));
     }
   }
+  // A world inherited from another campaign: its history binds this one too
+  const inherited = inheritedContext(message);
+  if (inherited) parts.push(inherited);
   const setting = path.join(getCampaignRoot(), 'raw', 'setting');
   if (fs.existsSync(setting)) {
     const files = fs.readdirSync(setting, { recursive: true }).map(String).filter(f => f.endsWith('.md') && f !== 'README.md');

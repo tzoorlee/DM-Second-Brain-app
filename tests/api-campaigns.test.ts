@@ -70,6 +70,13 @@ describe('campaigns API', () => {
     expect((await activePost(post('{"id":"beta"}'))).status).toBe(409);
   });
 
+  it('POST create from an unknown world → 400', async () => {
+    setup();
+    const res = await createPost(post('{"name":"New","from":"nowhere","copyHouseRules":true}'));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain('nowhere');
+  });
+
   it('POST create with a missing name → 400', async () => {
     setup();
     expect((await createPost(post('{}'))).status).toBe(400);
