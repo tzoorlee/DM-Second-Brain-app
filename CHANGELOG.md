@@ -7,6 +7,25 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.11.0] - 2026-10-19
+
+### Added
+
+- **Design ingest** on the ingest page, next to sessions:
+  - the initial design (every undated file of `raw/worldbuilding/`);
+  - each dated design file (`YYYY-MM-DD-<slug>.md`, the Studio's + Prepare), in date order.
+- The agent follows the template's DESIGN INGEST. New pages must be `prepared` with `first_seen: design`, and contradictions with `established` pages are flagged, not written.
+- Sessions and design have separate queues; one ingest is open at a time.
+- Links from the World Studio: **Ingest in the app** in the summary step, and **Ingest it now** for a written + Prepare.
+- Without credentials, the page shows the terminal command for the selected source.
+
+### Changed
+
+- `GET /api/ingest` returns `sources` (each with its kind, files, status and terminal command) instead of `sessions`.
+- `GET /api/ingest/:id/recap` is now `/source`.
+- Ingest links use `?source=`; `?session=` still works.
+- The campaign menu's "Ingest sessions" is now "Ingest".
+
 ## [0.10.1] - 2026-10-19
 
 ### Fixed
