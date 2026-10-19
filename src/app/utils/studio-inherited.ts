@@ -33,7 +33,9 @@ const emptyStep = (n: number) => ({
 
 // Copies the world of `source` into a campaign being built in `target` (not yet the
 // open campaign). The source is only read. Sessions, interludes, its wiki and its
-// Studio state stay behind; its wiki becomes reference history in raw/setting/.
+// Studio state stay behind; its wiki becomes reference history in raw/setting/. So do its
+// dated design files (+ Prepare, YYYY-MM-DD-… directly in raw/worldbuilding/): made for the
+// old campaign's play and already in its wiki, here they would only block the design queue.
 export function copyWorld(target: string, source: { id: string; root: string; title: string }, name: string, copyHouseRules: boolean) {
   const from = (rel: string) => path.join(source.root, rel);
   const to = (rel: string) => path.join(target, rel);
@@ -45,7 +47,7 @@ export function copyWorld(target: string, source: { id: string; root: string; ti
   if (copyHouseRules) copy(from('raw/house-rules.md'), to('raw/house-rules.md'));
   copy(from('raw/srd'), to('raw/srd'));
   copy(from('raw/setting'), to('raw/setting'));
-  copy(from('raw/worldbuilding'), to('raw/worldbuilding'));
+  copy(from('raw/worldbuilding'), to('raw/worldbuilding'), src => !(path.dirname(src) === from('raw/worldbuilding') && /^\d{4}-\d{2}-\d{2}/.test(path.basename(src))));
   copy(from('wiki'), to(`raw/setting/from-${source.id}`), src => !path.basename(src).startsWith('_template-'));
 
   // The Studio: the inherited step first, the steps the copy already covers approved

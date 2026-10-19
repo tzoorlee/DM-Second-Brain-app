@@ -61,7 +61,8 @@ choose **Start from: The world of …** when you create it. The app downloads th
 as usual, then copies the world of the other campaign: the world bible (with the new
 name), the setting, the SRD, the worldbuilding and, if you tick the box, the house rules.
 The old campaign's wiki goes to `raw/setting/from-<id>/` as history the new players don't
-know; its sessions and interludes stay behind, and the old campaign is not changed. The
+know; its sessions, interludes and dated design files (`raw/worldbuilding/YYYY-MM-DD-…`,
+already in its wiki) stay behind, and the old campaign is not changed. The
 World Studio then opens on an extra step, **Inherited world**, where you decide with the
 AI when the new campaign takes place and what changed meanwhile. Its summary gives you
 the commands for the design ingest and, if you want, the ingest of the inherited history.

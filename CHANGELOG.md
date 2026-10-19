@@ -7,6 +7,12 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.11.1] - 2026-10-19
+
+### Fixed
+
+- A campaign made from the world of another no longer copies the old campaign's dated design files (`raw/worldbuilding/YYYY-MM-DD-…`). They were made for the old campaign's play and are already in its wiki, which arrives as history; copied, they blocked the new campaign's design queue.
+
 ## [0.11.0] - 2026-10-19
 
 ### Added
