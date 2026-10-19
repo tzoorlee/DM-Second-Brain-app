@@ -142,6 +142,35 @@ the Studio still works: you write the drafts by hand.
 message. Drafts and conversations are saved in the campaign's `.dm-second-brain/` folder;
 the agent ignores it.
 
+## Session ingest
+
+After a session, save the recap from the dashboard and choose **Ingest it now** (or
+**Ingest sessions** in the campaign menu). The ingest page does what the agent does in a
+terminal with `claude "ingest raw/sessions/session-NN.md"`, following the campaign's
+`CLAUDE.md` and `TEMPLATES.md`, but nothing reaches the wiki until you approve it:
+
+1. **Discuss**: the agent reads the recap and the pages it touches, then lists the key
+   takeaways and asks about anything ambiguous. Answer in the chat; it writes nothing yet.
+2. **Proceed**: the agent makes every change (new and updated pages, moved quests, the
+   index and the log). Each page appears as "✎ path" while it works; the changes are kept
+   in `.dm-second-brain/ingest/session-NN/staged/`, not in the wiki.
+3. **Review**: the changes are grouped as new, changed, moved, and index & log, each with a
+   line diff against the wiki. Approve or reject each one, or **Ask for changes** with a
+   note: the agent rewrites only those pages. The app warns when an approved page links to
+   a new page you rejected.
+4. **Apply approved** writes the approved pages to `wiki/`. If you edited one of them by
+   hand meanwhile, the app shows the conflict and you choose: keep yours or take the
+   agent's. The log then names the session, so it reads as ingested.
+
+Sessions are ingested one at a time and in order. Closing the page loses nothing: the
+ingest resumes where it was. **Discard** drops it (the wiki is untouched) so you can start
+again, for example after editing the recap.
+
+The ingest uses `claude-sonnet-5-5` (`INGEST_MODEL`) with the Studio's credentials. A
+session that touches about 15 pages costs well under a dollar on your Anthropic account
+(most of the input is served from the prompt cache); the page shows the tokens used. The recap, the pages the agent reads, `CLAUDE.md` and `TEMPLATES.md` are sent
+to Anthropic. Without credentials the page shows the terminal command instead.
+
 ## Features
 
 - **Wiki browser** with ranked full-text search ([MiniSearch](https://github.com/lucaong/minisearch),
@@ -164,9 +193,8 @@ the agent ignores it.
   browser. Ctrl/Cmd+S saves the recap as the next `raw/sessions/session-NN.md`.
 - `_template-*.md` starters, `index.md` and `log.md` are not listed.
 
-> The app acts as **you, the DM**: it writes only your session notes into `raw/sessions/`.
-> Turning them into wiki pages is still the agent's job (an *ingest*, see the template's
-> `CLAUDE.md`).
+> The app acts as **you, the DM**: it writes your session notes into `raw/sessions/`, and
+> wiki pages only when you apply an ingest you reviewed (see [Session ingest](#session-ingest)).
 
 ## API
 
@@ -185,6 +213,9 @@ Campaigns are named by their folder name (the *id*), never by a path.
 - `GET /api/session` returns the next session number. `POST /api/session` saves a recap.
 - `/api/studio/*`: the World Studio (overview, steps, chat as NDJSON, approve, SRD,
   deviations). Steps are numbers; the browser never sends paths.
+- `/api/ingest/*`: session ingest (sessions and status; per session `session-NN`: state,
+  start, chat and requested changes as NDJSON, review, page diff, recap, apply, discard).
+  Sessions are ids; wiki paths are checked against the slug pattern.
 - `GET /api/campaigns` returns the mode (`campaigns-dir`, `vault-path` or `unconfigured`),
   the open campaign's id and title, and the campaigns in `CAMPAIGNS_DIR`.
 - `POST /api/campaigns` with `{ "name": "..." }` creates a campaign from the template and

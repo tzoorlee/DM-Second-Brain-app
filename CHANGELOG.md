@@ -7,6 +7,15 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.10.0] - 2026-10-19
+
+### Added
+
+- **Session ingest** (`/ingest`): an AI agent (Claude Sonnet 5.5, `INGEST_MODEL`) turns a session recap into wiki changes following the campaign's `CLAUDE.md` and `TEMPLATES.md`. It discusses the session first, then stages every change; you review each page as a diff, approve, reject or ask for changes, and apply. The wiki is written only on apply, with a conflict check for pages you edited meanwhile and a warning for links to rejected pages.
+- Pages are checked before staging: valid frontmatter with a `type`, and DM-only text under exactly `## Secrets (DM only)`.
+- Campaigns without `TEMPLATES.md` (made before template 0.5.0) use the pinned template release's, downloaded once into `.dm-second-brain/`.
+- "Ingest it now" after saving a recap; **Ingest sessions** in the campaign menu.
+
 ## [0.9.0] - 2026-10-18
 
 ### Added

@@ -34,7 +34,7 @@ export interface EntityLinks {
   unlocks: LinkTarget[];
 }
 
-const WIKILINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g;
+export const WIKILINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g;
 
 const slugOf = (entity: Entity) => path.basename(entity.relativePath, '.md');
 

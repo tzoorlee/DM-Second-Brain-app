@@ -47,6 +47,7 @@ export default function CampaignMenu({ info, onManage }: CampaignMenuProps) {
       <div className="campaign-fixed">
         <h2 className="campaign-switcher campaign-switcher-fixed">{label}</h2>
         <Link href="/studio" className="campaign-studio-link">World Studio</Link>
+        <Link href="/ingest" className="campaign-studio-link">Ingest sessions</Link>
       </div>
     );
   }
@@ -120,6 +121,10 @@ export default function CampaignMenu({ info, onManage }: CampaignMenuProps) {
           <Link href="/studio" role="menuitem" className="campaign-menu-action campaign-menu-link">
             <span className="campaign-menu-check" aria-hidden="true">✦</span>
             World Studio
+          </Link>
+          <Link href="/ingest" role="menuitem" className="campaign-menu-action campaign-menu-link">
+            <span className="campaign-menu-check" aria-hidden="true">✎</span>
+            Ingest sessions
           </Link>
           <button type="button" role="menuitem" className="campaign-menu-action" onClick={() => manage('list')}>
             <span className="campaign-menu-check" aria-hidden="true" />
