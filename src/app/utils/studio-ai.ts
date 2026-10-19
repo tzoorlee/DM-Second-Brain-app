@@ -22,6 +22,8 @@ export interface TurnParams {
   system: TextBlockParam[];
   messages: MessageParam[];
   tools: Tool[];
+  // Clears old tool results server-side (the ingest agent reads many pages)
+  contextEditing?: boolean;
 }
 
 // What report_inconsistency and the approval check return, before the app adds id and status
@@ -349,9 +351,17 @@ const IssueSchema = z.object({
 
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
+const CONTEXT_BETA = 'context-management-2025-06-27';
+
 // 'setup' for the nine steps (one-off, quality first), 'prep' for preparations and
-// interludes between sessions (frequent, speed first)
-export type StudioMode = 'setup' | 'prep';
+// interludes between sessions (frequent, speed first), 'ingest' for session ingests
+export type StudioMode = 'setup' | 'prep' | 'ingest';
+
+const MODEL_ENV: Record<StudioMode, [string, string]> = {
+  setup: ['STUDIO_MODEL', 'claude-opus-5-5'],
+  prep: ['STUDIO_PREP_MODEL', 'claude-sonnet-5-5'],
+  ingest: ['INGEST_MODEL', 'claude-sonnet-5-5'],
+};
 
 export function createAnthropicModel(mode: StudioMode = 'setup'): StudioModel {
   // Created on first use and dropped when the credentials check fails, so a key added
@@ -362,19 +372,20 @@ export function createAnthropicModel(mode: StudioMode = 'setup'): StudioModel {
     const workspace = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
     return (client ??= new Anthropic(workspace ? { defaultHeaders: { 'anthropic-workspace-id': workspace } } : {}));
   };
-  const name =
-    mode === 'prep' ? process.env.STUDIO_PREP_MODEL?.trim() || 'claude-sonnet-5-5' : process.env.STUDIO_MODEL?.trim() || 'claude-opus-5-5';
+  const [envName, fallback] = MODEL_ENV[mode];
+  const name = process.env[envName]?.trim() || fallback;
   let checked: { at: number; ok: boolean } | null = null;
 
   return {
     name,
-    async streamTurn({ system, messages, tools }, onText) {
+    async streamTurn({ system, messages, tools, contextEditing }, onText) {
       const stream = api().beta.messages.stream({
         model: name,
         max_tokens: 64000,
-        betas: [FALLBACK_BETA],
+        betas: contextEditing ? [FALLBACK_BETA, CONTEXT_BETA] : [FALLBACK_BETA],
         fallbacks: 'default',
         thinking: { type: 'adaptive' },
+        ...(contextEditing ? { context_management: { edits: [{ type: 'clear_tool_uses_20250919' as const }] } } : {}),
         system,
         tools,
         messages,
