@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bubblesOf, canContinue } from '../src/app/components/ingest/IngestChat';
+import { idForItemFile } from '../src/app/components/ingest/api';
 
 const view = (phase: string, last: 'user' | 'assistant') => ({ phase, messages: [{ role: last, content: 'x' }] }) as never;
 
@@ -27,5 +28,11 @@ describe('Ingest chat', () => {
     expect(canContinue(view('discuss', 'user'), '')).toBe(true);
     expect(canContinue(view('discuss', 'assistant'), 'The answer was cut off')).toBe(true);
     expect(canContinue(view('review', 'user'), 'x')).toBe(false);
+  });
+
+  it('finds the ingest id of a Studio item file', () => {
+    expect(idForItemFile('raw/worldbuilding/2026-10-05-the-old-mill.md')).toBe('design-2026-10-05-the-old-mill');
+    expect(idForItemFile('raw/interludes/2026-10-05-the-storm.md')).toBeNull();
+    expect(idForItemFile('raw/worldbuilding/regions.md')).toBeNull();
   });
 });

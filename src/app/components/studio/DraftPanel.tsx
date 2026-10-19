@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { idForItemFile } from '../ingest/api';
 import { StepWithDraft, studioApi } from './api';
 import BasicsForm from './BasicsForm';
 import RulesChecklist from './RulesChecklist';
@@ -19,6 +21,8 @@ interface DraftPanelProps {
 // The page remounts this panel (key) when the step changes; within a step the
 // panel keeps its own text and takes the server's draft after an accepted proposal
 export default function DraftPanel({ step, title, fileLabel, readOnly = false, ingestCommand, onChanged }: DraftPanelProps) {
+  // A written + Prepare file can be ingested in the app; interludes only from a terminal for now
+  const ingestId = idForItemFile(fileLabel);
   const [text, setText] = useState(step.draft);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -112,7 +116,10 @@ export default function DraftPanel({ step, title, fileLabel, readOnly = false, i
 
       {ingestCommand && (
         <div className="studio-ingest">
-          <p>{readOnly ? 'Ingested by the agent.' : 'Written. To turn it into wiki pages, run:'}</p>
+          <p>{readOnly ? 'Ingested by the agent.' : ingestId ? 'Written. Turn it into wiki pages:' : 'Written. To turn it into wiki pages, run:'}</p>
+          {!readOnly && ingestId && (
+            <p><Link href={`/ingest?source=${ingestId}`} className="studio-ingest-link">Ingest it now →</Link> or run:</p>
+          )}
           {!readOnly && <pre className="studio-command">{ingestCommand}</pre>}
         </div>
       )}

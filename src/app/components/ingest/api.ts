@@ -1,14 +1,15 @@
 import type { IngestEvent } from '../../utils/ingest-agent';
-import type { SourceInfo as SessionInfo } from '../../utils/ingest-sources';
+import type { SourceInfo } from '../../utils/ingest-sources';
 import type { Change, IngestState } from '../../utils/ingest-state';
 
-export type { Change, IngestEvent, SessionInfo };
+export type { Change, IngestEvent, SourceInfo };
 
 // Answer of GET /api/ingest
 export interface IngestOverview {
   aiAvailable: boolean;
   model: string;
-  sources: SessionInfo[];
+  // command: the same ingest from a terminal (null for an invalid name)
+  sources: (SourceInfo & { command: string | null })[];
   open: string | null;
   terminalCommand: string;
 }
@@ -75,3 +76,9 @@ export const ingestApi = {
     stream(`/api/ingest/${id}/chat`, body, onEvent),
   requestChanges: (id: string, onEvent: (e: IngestEvent) => void) => stream(`/api/ingest/${id}/changes`, {}, onEvent),
 };
+
+// The ingest id of a Studio item's file: a dated design file (+ Prepare). Interludes have none yet.
+export function idForItemFile(file: string): string | null {
+  const m = /^raw\/worldbuilding\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\.md$/.exec(file);
+  return m ? `design-${m[1]}` : null;
+}

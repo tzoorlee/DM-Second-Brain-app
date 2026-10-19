@@ -215,7 +215,10 @@ describe('Ingest API', () => {
 
     it('gives the terminal command of the first source not ingested', async () => {
       fs.writeFileSync(path.join(root, 'wiki', 'log.md'), '## [x | session-01] ingest\n## [x | session-02] ingest\n');
-      expect((await (await overview()).json()).terminalCommand).toContain('claude "design ingest of raw/worldbuilding"');
+      const body = await (await overview()).json();
+      expect(body.terminalCommand).toContain('claude "design ingest of raw/worldbuilding"');
+      // each source carries its own command, for the one on screen
+      expect(body.sources[0].command).toMatch(/^cd '.*' && claude "ingest raw\/sessions\/session-01.md"$/);
     });
   });
 
