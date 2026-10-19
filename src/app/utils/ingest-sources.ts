@@ -48,13 +48,22 @@ function worldbuildingFiles(): { initial: string[]; dated: string[]; invalid: st
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { recursive: true }).map(String).sort()) {
     const rel = entry.split(path.sep).join('/');
-    if (!rel.endsWith('.md') || path.basename(rel) === 'README.md' || !fs.statSync(path.join(dir, entry)).isFile()) continue;
+    if (!rel.endsWith('.md') || path.basename(rel) === 'README.md' || !isFile(path.join(dir, entry))) continue;
     const topLevel = !rel.includes('/');
     if (topLevel && DATED.test(rel)) out.dated.push(rel);
     else if (topLevel && STARTS_DATED.test(rel)) out.invalid.push(rel);
     else out.initial.push(rel);
   }
   return out;
+}
+
+// A broken link or a file removed mid-scan is skipped, not fatal
+function isFile(abs: string): boolean {
+  try {
+    return fs.statSync(abs).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function readLog(): string {
@@ -74,7 +83,8 @@ function isLogged(log: string, id: string): boolean {
   if (kind === 'design') return log.includes(designFile(id));
   return log
     .split('\n')
-    .some(l => /^## \[[^\]]*\] design —/.test(l) && !new RegExp(`${WORLDBUILDING}/\\d{4}-\\d{2}-\\d{2}-`).test(l));
+    // Written by hand from a terminal too: any case, any dash
+    .some(l => /^##\s*\[[^\]]*\]\s*design\s*[—–-]/i.test(l) && !new RegExp(`${WORLDBUILDING}/\\d{4}-\\d{2}-\\d{2}-`).test(l));
 }
 
 export const isSourceIngested = (id: string) => isLogged(readLog(), id);

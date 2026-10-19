@@ -138,11 +138,16 @@ describe('Ingest tools', () => {
 
     it('reads the initial design file by file, and nothing outside the list', () => {
       const list = runTool(d, 'read_source', { file: 'source' }).content;
-      expect(list).toContain('raw/worldbuilding/lore/Old Gods.md');
-      expect(list).toContain('raw/worldbuilding/regions.md');
+      expect(list).toContain('source/lore/Old Gods.md');
+      expect(list).toContain('source/regions.md');
       expect(list).not.toContain('old-mill');
       expect(runTool(d, 'read_source', { file: 'source/lore/Old Gods.md' }).content).toBe('# Old Gods\n');
       expect(runTool(d, 'read_source', { file: 'session' }).content).toContain('regions.md');
+      // every listed line works as it is, and the campaign-relative form too
+      for (const line of list.split('\n').filter(l => l.startsWith('source/')))
+        expect(runTool(d, 'read_source', { file: line }).isError).toBeFalsy();
+      expect(list).toContain('source/lore/Old Gods.md');
+      expect(runTool(d, 'read_source', { file: 'source/raw/worldbuilding/regions.md' }).content).toContain('# Regions');
       for (const bad of ['source/../world-bible.md', 'source/2026-10-05-the-old-mill.md', 'source/missing.md'])
         expect(runTool(d, 'read_source', { file: bad }).isError).toBe(true);
       const dated = newIngest('design-2026-10-05-the-old-mill');
@@ -159,6 +164,8 @@ describe('Ingest tools', () => {
       const bad2 = runTool(d, 'write_page', { path: 'npcs/old-varga.md', content: designPage('canon_status: prepared\n') });
       expect(bad2).toMatchObject({ isError: true, content: expect.stringContaining('first_seen: design') });
       expect(runTool(d, 'write_page', { path: 'npcs/old-varga.md', content: designPage('canon_status: prepared\nfirst_seen: design\n') }).staged?.kind).toBe('new');
+      // rewriting the new page keeps the rule
+      expect(runTool(d, 'write_page', { path: 'npcs/old-varga.md', content: designPage('canon_status: established\nfirst_seen: design\n') }).isError).toBe(true);
       // an existing established page can still be updated
       runTool(d, 'read_page', { path: 'npcs/hilda.md' });
       expect(runTool(d, 'write_page', { path: 'npcs/hilda.md', content: '---\ntype: npc\ncanon_status: established\n---\n# Hilda\nNear [[old-varga]].\n' }).isError).toBeFalsy();

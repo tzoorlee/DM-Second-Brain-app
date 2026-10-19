@@ -94,6 +94,21 @@ describe('Ingest sources', () => {
       expect(isSourceIngested('design-initial')).toBe(true);
     });
 
+    it('accepts terminal design lines written loosely', () => {
+      for (const line of ['## [design] Design - World of Eldoria', '## [design] design – Eldoria', '## [setup]  DESIGN — Eldoria']) {
+        write('wiki/log.md', `# Log\n\n${line}\n`);
+        expect(isSourceIngested('design-initial')).toBe(true);
+      }
+      write('wiki/log.md', '# Log\n\n## [x | session-01] ingest — the design of the crypt\n');
+      expect(isSourceIngested('design-initial')).toBe(false);
+    });
+
+    it('survives a broken symlink in raw/worldbuilding', () => {
+      fs.symlinkSync(path.join(root, 'nowhere.md'), path.join(root, 'raw/worldbuilding/broken.md'));
+      expect(design().map(s => s.id)).toContain('design-initial');
+      expect(design()[0].files).not.toContain('raw/worldbuilding/broken.md');
+    });
+
     it('keeps queues separate, with one open ingest in all', () => {
       expect(canStart('design-initial')).toEqual({ ok: true });
       expect(canStart('design-2026-10-05-the-old-mill')).toEqual({ ok: false, reason: 'ingest design-initial first' });

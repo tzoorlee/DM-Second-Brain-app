@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import IngestChat, { Bubble, LiveExchange } from '../components/ingest/IngestChat';
 import ReviewPanel from '../components/ingest/ReviewPanel';
 import SourceList from '../components/ingest/SourceList';
-import { IngestEvent, IngestOverview, IngestView, ingestApi } from '../components/ingest/api';
+import { IngestEvent, IngestOverview, IngestView, ingestApi, pickSource } from '../components/ingest/api';
 
 type Tab = 'sources' | 'chat' | 'review';
 
@@ -26,9 +26,7 @@ export default function IngestPage() {
     try {
       const next = await ingestApi.overview();
       setOverview(next);
-      // The open ingest, else the first session not ingested yet, else the last one
-      const target =
-        id ?? currentRef.current ?? next.open ?? next.sources.find(s => s.status === 'not-ingested')?.id ?? next.sources.at(-1)?.id ?? null;
+      const target = pickSource(next.sources, id ?? null, currentRef.current, next.open);
       currentRef.current = target;
       setCurrent(target);
       if (target) {

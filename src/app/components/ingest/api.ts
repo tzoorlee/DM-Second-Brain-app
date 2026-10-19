@@ -82,3 +82,18 @@ export function idForItemFile(file: string): string | null {
   const m = /^raw\/worldbuilding\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\.md$/.exec(file);
   return m ? `design-${m[1]}` : null;
 }
+
+// The source to show: the one asked for if it exists, else the open ingest, the first not
+// ingested, or the last one. Invalid names (display only) are never picked.
+export function pickSource(
+  sources: { id: string; status: SourceInfo['status'] }[],
+  requested: string | null,
+  current: string | null,
+  open: string | null,
+): string | null {
+  const usable = sources.filter(s => s.status !== 'invalid-name');
+  const exists = (id: string | null) => (id && usable.some(s => s.id === id) ? id : null);
+  return (
+    exists(requested) ?? exists(current) ?? exists(open) ?? usable.find(s => s.status === 'not-ingested')?.id ?? usable.at(-1)?.id ?? null
+  );
+}

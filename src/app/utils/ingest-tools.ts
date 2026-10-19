@@ -74,11 +74,14 @@ function readSource(s: IngestState, file: string): ToolOutcome {
   if (file === 'source' || file === 'session') {
     const files = sourceFiles(s.id);
     if (kindOf(s.id) !== 'design-initial') return { content: fs.readFileSync(path.join(root, files[0]), 'utf-8') };
-    return { content: `The design material, one file per line. Read each with read_source("source/<path>"):\n${files.join('\n')}` };
+    const lines = files.map(f => `source/${f.slice('raw/worldbuilding/'.length)}`);
+    return { content: `The design material: read each file with read_source and the line as it is.\n${lines.join('\n')}` };
   }
   if (file.startsWith('source/')) {
     // Only the files of this source: the path is matched against the list, never resolved
-    const rel = `raw/worldbuilding/${file.slice('source/'.length)}`;
+    // "source/<path>" as listed, or with the campaign-relative path an agent may use
+    const rest = file.slice('source/'.length);
+    const rel = rest.startsWith('raw/worldbuilding/') ? rest : `raw/worldbuilding/${rest}`;
     if (kindOf(s.id) !== 'design-initial' || !sourceFiles(s.id).includes(rel)) return error(`"${file}" is not one of the files of this ingest.`);
     return { content: fs.readFileSync(path.join(root, rel), 'utf-8') };
   }
@@ -172,7 +175,9 @@ export function runTool(s: IngestState, name: string, input: Record<string, stri
         const problem = pageProblem(input.path, input.content);
         if (problem) return error(problem);
         const isPage = input.path !== 'index.md' && input.path !== 'log.md';
-        if (isPage && kindOf(s.id) !== 'session' && readReal(input.path) === null && !s.changes.some(c => c.path === input.path)) {
+        // Checked on every write while the page is new, rewrites included
+        const isNew = readReal(input.path) === null && (s.changes.find(c => c.path === input.path)?.kind ?? 'new') === 'new';
+        if (isPage && kindOf(s.id) !== 'session' && isNew) {
           const missing = designFieldsMissing(input.content);
           if (missing) return error(`A page created by a design ingest needs ${missing} in its frontmatter: it is design, not history.`);
         }
