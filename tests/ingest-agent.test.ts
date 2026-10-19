@@ -3,7 +3,7 @@ import path from 'path';
 import type Anthropic from '@anthropic-ai/sdk';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IngestEvent, ingestSystem, requestChanges, runIngestTurn, startIngest } from '../src/app/utils/ingest-agent';
-import { loadIngest, readStaged, saveIngest } from '../src/app/utils/ingest-state';
+import { discardIngest, loadIngest, readStaged, saveIngest } from '../src/app/utils/ingest-state';
 import { IssueInput, StudioModel, TurnParams } from '../src/app/utils/studio-ai';
 import { isolateEnv, makeCampaign, makeTempDir, writePage } from './helpers';
 
@@ -149,6 +149,22 @@ describe('Ingest agent', () => {
     await startIngest(ID, model, () => {});
     await runIngestTurn(ID, { message: 'Vai' }, model, () => {});
     expect(loadIngest(ID)?.phase).toBe('discuss');
+  });
+
+  it('starts a design ingest with the design rules, on the same system prompt', async () => {
+    fs.mkdirSync(path.join(root, 'raw', 'worldbuilding'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'raw', 'worldbuilding', 'regions.md'), '# Regions\n');
+    const session = new FakeModel([say('Takeaways.')]);
+    await startIngest(ID, session, () => {});
+    const firstSession = lastUserText(session.calls[0]);
+    expect(firstSession).toContain(`| ${ID}]`);
+    discardIngest(loadIngest(ID)!);
+    const design = new FakeModel([say('Plan.')]);
+    await startIngest('design-initial', design, () => {});
+    const first = lastUserText(design.calls[0]);
+    for (const text of ['Design ingest of raw/worldbuilding/regions.md', 'canon_status: prepared', 'first_seen: design', '## [design] design —', '(raw/worldbuilding/)'])
+      expect(first).toContain(text);
+    expect(design.calls[0].system).toEqual(session.calls[0].system);
   });
 
   it('treats a chat "proceed" as Proceed', async () => {

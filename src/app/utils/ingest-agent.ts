@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import type Anthropic from '@anthropic-ai/sdk';
 import { downloadCapped } from './download';
-import { CONTINUE_MESSAGE, INGEST_PREAMBLE, PROCEED_MESSAGE, START_MESSAGE } from './ingest-prompts';
-import { canStart, sourceFiles } from './ingest-sources';
+import { CONTINUE_MESSAGE, INGEST_PREAMBLE, PROCEED_MESSAGE, startMessage } from './ingest-prompts';
+import { canStart, getSource } from './ingest-sources';
 import { Change, IngestPhase, IngestState, loadIngest, newIngest, resolveForIngest, saveIngest } from './ingest-state';
 import { runTool, toolsFor } from './ingest-tools';
 import { StudioModel } from './studio-ai';
@@ -182,7 +182,7 @@ export async function startIngest(id: string, model: StudioModel, emit: Emit): P
   }
   await withLock(id, emit, async emit => {
     const s = newIngest(id);
-    addUserText(s.messages, START_MESSAGE(sourceFiles(id)[0]));
+    addUserText(s.messages, startMessage(getSource(id)!));
     saveIngest(s);
     await exchange(s, model, emit);
   });
