@@ -54,8 +54,10 @@ describe('Ingest state', () => {
     const first = s.reads['npcs/hilda.md'];
     expect(first).toBe(mtime('wiki/npcs/hilda.md'));
     fs.utimesSync(path.join(root, 'wiki/npcs/hilda.md'), new Date(), new Date(Date.now() + 5000));
+    // a re-read sees the DM's edit, so it is no longer a conflict
     readWikiPage(s, 'npcs/hilda.md');
-    expect(s.reads['npcs/hilda.md']).toBe(first);
+    expect(s.reads['npcs/hilda.md']).toBe(mtime('wiki/npcs/hilda.md'));
+    expect(s.reads['npcs/hilda.md']).not.toBe(first);
     stagePage(s, 'npcs/hilda.md', '---\ntype: npc\n---\n# Hilda (scarred)\n');
     expect(readWikiPage(s, 'npcs/hilda.md')).toContain('scarred');
     expect(readWikiPage(s, 'npcs/nobody.md')).toBeNull();
@@ -90,6 +92,20 @@ describe('Ingest state', () => {
     write('wiki/npcs/hilda-old.md', 'x');
     expect(() => stageMove(s, 'npcs/hilda.md', 'npcs/hilda-old.md')).toThrow(/exists/);
     expect(() => stageMove(s, 'npcs/ghost.md', 'npcs/ghost-2.md')).toThrow(/no page/i);
+  });
+
+  it('moving a page back where it was undoes the move', () => {
+    const s = newIngest(ID);
+    stageMove(s, 'quests/active/crypt.md', 'quests/completed/crypt.md');
+    stageMove(s, 'quests/completed/crypt.md', 'quests/active/crypt.md');
+    expect(s.changes).toEqual([]);
+    expect(readWikiPage(s, 'quests/active/crypt.md')).toContain('# Crypt');
+    // with edits made after the move, it becomes a plain change
+    stageMove(s, 'quests/active/crypt.md', 'quests/completed/crypt.md');
+    stagePage(s, 'quests/completed/crypt.md', '---\ntype: quest\n---\n# Crypt (done)\n');
+    stageMove(s, 'quests/completed/crypt.md', 'quests/active/crypt.md');
+    expect(s.changes).toEqual([{ path: 'quests/active/crypt.md', kind: 'changed', review: 'pending' }]);
+    expect(readWikiPage(s, 'quests/active/crypt.md')).toContain('(done)');
   });
 
   it('moving a new page just renames it', () => {

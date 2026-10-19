@@ -34,8 +34,10 @@ export async function GET(_request: Request, context: IdContext) {
 export async function PUT(request: Request, context: IdContext) {
   try {
     getCampaignRoot();
-    const s = requireIngest(await parseId(context));
+    const id = await parseId(context);
+    // Body first: a state loaded before a slow body could be saved over a newer one (an apply)
     const body = await readJson(request);
+    const s = requireIngest(id);
     if (body.approveAll === true) return NextResponse.json(withChecks(approveAll(s)));
     if (typeof body.path !== 'string') throw new BadRequest('Name the page to review.');
     const note = typeof body.note === 'string' ? body.note.trim() : '';

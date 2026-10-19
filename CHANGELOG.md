@@ -7,6 +7,19 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.10.1] - 2026-10-19
+
+### Fixed
+
+- Session ingest:
+  - a one-word answer such as "go" or "vai" no longer counts as Proceed: only "proceed" or "procedi" does;
+  - **Apply approved** is disabled while it runs, so a double click no longer shows a conflict after a successful apply;
+  - a review request that arrives while an apply runs can no longer reopen the ingest;
+  - the agent's `list_pages` now includes `index.md` and `log.md`;
+  - after a reload, the chat no longer shows refused writes as "✎ path";
+  - fewer false conflicts: a page the agent reads again counts as seen with your edits. The agent must also read an existing page before rewriting it;
+  - moving a page back where it was undoes the move instead of being refused.
+
 ## [0.10.0] - 2026-10-19
 
 ### Added

@@ -35,6 +35,8 @@ export default function ReviewPanel({ view, busy, onChanged, onRequestChanges, o
   // How each conflict is settled: keep the wiki's version or take the agent's
   const [resolved, setResolved] = useState<Record<string, 'theirs' | 'agent'>>({});
   const [error, setError] = useState('');
+  // A second click while applying would see the pages just written as conflicts
+  const [applying, setApplying] = useState(false);
 
   const change = view.changes.find(c => c.path === selected) ?? null;
 
@@ -79,6 +81,7 @@ export default function ReviewPanel({ view, busy, onChanged, onRequestChanges, o
     ].filter(Boolean);
     if (parts.length && !window.confirm(`${parts.join(' and ')}: those pages will be left out. Apply the approved ones?`)) return;
     if (view.linkWarnings.length && !window.confirm('Some approved pages link to new pages you rejected. Apply anyway?')) return;
+    setApplying(true);
     try {
       setError('');
       const keepTheirs = Object.keys(resolved).filter(p => resolved[p] === 'theirs');
@@ -90,6 +93,8 @@ export default function ReviewPanel({ view, busy, onChanged, onRequestChanges, o
       // A conflict found at the last moment shows up in the refreshed view
       const fresh = await ingestApi.state(view.id).catch(() => null);
       if (fresh) onChanged(fresh);
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -182,7 +187,9 @@ export default function ReviewPanel({ view, busy, onChanged, onRequestChanges, o
         {asked.length > 0 && (
           <button type="button" className="secondary" onClick={onRequestChanges} disabled={busy}>Send {asked.length} request(s) to the agent</button>
         )}
-        <button type="button" onClick={apply} disabled={busy || approved.length === 0 || unresolved.length > 0}>Apply approved</button>
+        <button type="button" onClick={apply} disabled={busy || applying || approved.length === 0 || unresolved.length > 0}>
+          {applying ? 'Applying…' : 'Apply approved'}
+        </button>
       </div>
     </section>
   );

@@ -10,8 +10,9 @@ const paths = (value: unknown) => (Array.isArray(value) ? value.filter((p): p is
 export async function POST(request: Request, context: IdContext) {
   try {
     getCampaignRoot();
-    const s = requireIngest(await parseId(context));
+    const id = await parseId(context);
     const body = await readJson(request);
+    const s = requireIngest(id);
     const keepTheirs = paths(body.keepTheirs);
     const takeAgent = paths(body.takeAgent);
     const open = s.phase === 'review' ? conflicts(s).filter(p => !keepTheirs.includes(p) && !takeAgent.includes(p)) : [];

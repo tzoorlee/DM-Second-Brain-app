@@ -144,6 +144,13 @@ describe('Ingest agent', () => {
     expect(JSON.stringify(last.content)).toContain('write_page');
   });
 
+  it('does not take a one-word answer like "go" or "vai" as Proceed', async () => {
+    const model = new FakeModel([say('Should they go or stay?'), say('Noted.')]);
+    await startIngest(ID, model, () => {});
+    await runIngestTurn(ID, { message: 'Vai' }, model, () => {});
+    expect(loadIngest(ID)?.phase).toBe('discuss');
+  });
+
   it('treats a chat "proceed" as Proceed', async () => {
     const model = new FakeModel([say('Takeaways.'), say('Working on it.')]);
     await startIngest(ID, model, () => {});
@@ -202,6 +209,7 @@ describe('Ingest agent', () => {
       say('Takeaways.'),
       use(
         call('write_page', { path: 'npcs/brother-varn.md', content: PAGE }),
+        call('read_page', { path: 'npcs/hilda.md' }),
         call('write_page', { path: 'npcs/hilda.md', content: '---\ntype: npc\n---\n# Hilda\nScarred.\n' }),
         call('finish', { summary: 'v1' }),
       ),

@@ -97,14 +97,15 @@ export function readReal(p: string): string | null {
 }
 
 // What the agent sees: its own staged version first, then the real wiki. A page it
-// moved away is gone. The first real read records the file's mtime for apply's conflict check.
+// moved away is gone. Reading the real page records its mtime for apply's conflict check:
+// the agent has seen that version, DM edits included.
 export function readWikiPage(s: IngestState, p: string): string | null {
   checkPath(p);
   const staged = readStaged(s, p);
   if (staged !== null) return staged;
   if (s.changes.some(c => c.kind === 'moved' && c.from === p)) return null;
   const real = readReal(p);
-  if (real !== null && s.reads[p] === undefined) s.reads[p] = fs.statSync(realFile(p)).mtimeMs;
+  if (real !== null) s.reads[p] = fs.statSync(realFile(p)).mtimeMs;
   return real;
 }
 
@@ -122,15 +123,22 @@ export function stagePage(s: IngestState, p: string, content: string): Change {
   return { ...change };
 }
 
-export function stageMove(s: IngestState, from: string, to: string): Change {
+// Returns null when the page is moved back where it was, unchanged: nothing is left to apply
+export function stageMove(s: IngestState, from: string, to: string): Change | null {
   checkPath(from);
   checkPath(to);
   const content = readWikiPage(s, from);
   if (content === null) throw new Error(`There is no page at ${from}.`);
+  const previous = s.changes.find(c => c.path === from);
+  if (previous?.kind === 'moved' && previous.from === to) {
+    fs.rmSync(stagedFile(s.id, from), { force: true });
+    s.changes = s.changes.filter(c => c !== previous);
+    if (content === readReal(to)) return null;
+    return stagePage(s, to, content);
+  }
   if (readReal(to) !== null || readStaged(s, to) !== null) throw new Error(`${to} already exists: pick another path or rewrite that page.`);
   writeFileAtomic(stagedFile(s.id, to), content);
   fs.rmSync(stagedFile(s.id, from), { force: true });
-  const previous = s.changes.find(c => c.path === from);
   s.changes = s.changes.filter(c => c !== previous);
   // A new page only changes name; a page moved twice keeps its original origin
   const change: Change =
