@@ -28,15 +28,16 @@ describe('Ingest tools', () => {
     s = newIngest('session-03');
   });
 
-  it('exposes write tools only while working', () => {
+  it('sends one tool list in both phases (thinking blocks are bound to it), refusing writes while discussing', () => {
     const names = (phase: Parameters<typeof toolsFor>[0]) => toolsFor(phase).map(t => t.name);
-    expect(names('discuss')).toEqual(['read_source', 'list_pages', 'search_wiki', 'read_page']);
+    expect(names('discuss')).toEqual(names('working'));
     expect(names('working')).toEqual(['read_source', 'list_pages', 'search_wiki', 'read_page', 'write_page', 'move_page', 'append_log', 'finish']);
     expect(names('review')).toEqual([]);
     expect(toolsFor('working').every(t => t.strict)).toBe(true);
     // the discuss phase refuses write tools even if asked
     s.phase = 'discuss';
-    expect(runTool(s, 'write_page', { path: 'npcs/x.md', content: page('X') }).isError).toBe(true);
+    expect(runTool(s, 'write_page', { path: 'npcs/x.md', content: page('X') })).toMatchObject({ isError: true, content: expect.stringMatching(/Proceed/) });
+    expect(s.changes).toEqual([]);
   });
 
   it('reads sources', () => {

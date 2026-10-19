@@ -48,11 +48,14 @@ export const INGEST_TOOLS: { read: Tool[]; write: Tool[] } = {
   ],
 };
 
+// Both phases get the same list: the API binds thinking blocks to the tools they were made
+// with, so a list that changed at Proceed would break the conversation. runTool refuses
+// writes during the discussion instead.
 export function toolsFor(phase: IngestPhase): Tool[] {
-  if (phase === 'discuss') return INGEST_TOOLS.read;
-  if (phase === 'working') return [...INGEST_TOOLS.read, ...INGEST_TOOLS.write];
-  return [];
+  return phase === 'discuss' || phase === 'working' ? [...INGEST_TOOLS.read, ...INGEST_TOOLS.write] : [];
 }
+
+const isWrite = (name: string) => INGEST_TOOLS.write.some(t => t.name === name);
 
 export interface ToolOutcome {
   content: string;
@@ -126,8 +129,10 @@ function pageProblem(p: string, content: string): string | null {
 }
 
 export function runTool(s: IngestState, name: string, input: Record<string, string>): ToolOutcome {
-  const allowed = toolsFor(s.phase).some(t => t.name === name);
-  if (!allowed) return error(INGEST_TOOLS.write.some(t => t.name === name) ? `${name} is not available yet: discuss the session with the DM first.` : `Unknown tool ${name}.`);
+  if (!toolsFor(s.phase).some(t => t.name === name)) return error(`Unknown tool ${name}.`);
+  if (s.phase === 'discuss' && isWrite(name)) {
+    return error(`${name} is refused during the discussion: nothing is written until the DM presses Proceed. Wait for it.`);
+  }
   try {
     switch (name) {
       case 'read_source':

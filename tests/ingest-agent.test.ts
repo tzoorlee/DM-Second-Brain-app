@@ -90,7 +90,7 @@ describe('Ingest agent', () => {
     expect(offline.map(b => b.text).join()).toMatch(/TEMPLATES\.md could not be loaded/);
   });
 
-  it('discusses first with read tools only, then works, stages and finishes', async () => {
+  it('discusses first (writes refused), then works, stages and finishes', async () => {
     const model = new FakeModel([
       use(call('read_source', { file: 'session' })),
       say('Brother Varn appeared. Is he new?'),
@@ -100,7 +100,8 @@ describe('Ingest agent', () => {
     ]);
     const a = collect();
     await startIngest(ID, model, a.emit);
-    expect(toolNames(model.calls[0])).toEqual(['read_source', 'list_pages', 'search_wiki', 'read_page']);
+    // the same tools in every phase: the API rejects thinking blocks made under another tool list
+    expect(toolNames(model.calls[0])).toEqual(['read_source', 'list_pages', 'search_wiki', 'read_page', 'write_page', 'move_page', 'append_log', 'finish']);
     expect(model.calls[0].contextEditing).toBe(true);
     expect(lastUserText(model.calls[0])).toContain(`Ingest raw/sessions/${ID}.md`);
     expect(a.events).toContainEqual({ type: 'text', text: 'Brother Varn appeared. Is he new?' });
@@ -109,13 +110,13 @@ describe('Ingest agent', () => {
 
     const b = collect();
     await runIngestTurn(ID, { message: 'Yes, he is new.' }, model, b.emit);
-    expect(toolNames(model.calls[2])).not.toContain('write_page');
+    expect(toolNames(model.calls[2])).toEqual(toolNames(model.calls[0]));
     expect(loadIngest(ID)?.phase).toBe('discuss');
 
     const c = collect();
     await runIngestTurn(ID, { proceed: true }, model, c.emit);
     expect(lastUserText(model.calls[3])).toContain('Proceed');
-    expect(toolNames(model.calls[3])).toContain('write_page');
+    expect(toolNames(model.calls[3])).toEqual(toolNames(model.calls[0]));
     expect(c.events).toContainEqual({ type: 'phase', phase: 'working' });
     expect(c.events).toContainEqual({ type: 'staged', change: { path: 'npcs/brother-varn.md', kind: 'new', review: 'pending' } });
     expect(c.events).toContainEqual({ type: 'phase', phase: 'review' });
