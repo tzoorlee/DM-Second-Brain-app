@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import type Anthropic from '@anthropic-ai/sdk';
-import { sourceFiles } from './ingest-sources';
+import { kindOf, sourceFiles } from './ingest-sources';
 import { Change, IngestPhase, IngestState, isWikiPath, readReal, readStaged, readWikiPage, stageMove, stagePage } from './ingest-state';
 import { searchEntities } from './search';
 import { isDmSecretsHeading } from './secrets';
@@ -30,8 +30,8 @@ const WIKI_PATH = 'Relative to wiki/, lowercase slugs, e.g. "characters/npcs/hil
 
 export const INGEST_TOOLS: { read: Tool[]; write: Tool[] } = {
   read: [
-    tool('read_source', 'Read a source file: "session" (the recap being ingested), "world-bible", "house-rules", or "srd/<path>" (a file or folder under raw/srd/).', {
-      file: '"session", "world-bible", "house-rules" or "srd/<path>".',
+    tool('read_source', 'Read a source file: "source" (the material being ingested; for several files, their list, each read with "source/<path>"), "world-bible", "house-rules", or "srd/<path>" (a file or folder under raw/srd/).', {
+      file: '"source", "source/<path>", "world-bible", "house-rules" or "srd/<path>".',
     }),
     tool('list_pages', 'List the wiki pages under a folder, staged ones included.', { folder: 'Folder relative to wiki/, e.g. "characters/npcs"; "" for all.' }),
     tool('search_wiki', 'Full-text search over the wiki (DM view, secrets included) and the pages staged in this ingest.', { query: 'Words to look for.' }),
@@ -70,7 +70,18 @@ const SOURCES: Record<string, string> = { 'world-bible': 'raw/world-bible.md', '
 
 function readSource(s: IngestState, file: string): ToolOutcome {
   const root = getCampaignRoot();
-  if (file === 'session') return { content: fs.readFileSync(path.join(root, sourceFiles(s.id)[0]), 'utf-8') };
+  // "session" is what 0.10 called it
+  if (file === 'source' || file === 'session') {
+    const files = sourceFiles(s.id);
+    if (kindOf(s.id) !== 'design-initial') return { content: fs.readFileSync(path.join(root, files[0]), 'utf-8') };
+    return { content: `The design material, one file per line. Read each with read_source("source/<path>"):\n${files.join('\n')}` };
+  }
+  if (file.startsWith('source/')) {
+    // Only the files of this source: the path is matched against the list, never resolved
+    const rel = `raw/worldbuilding/${file.slice('source/'.length)}`;
+    if (kindOf(s.id) !== 'design-initial' || !sourceFiles(s.id).includes(rel)) return error(`"${file}" is not one of the files of this ingest.`);
+    return { content: fs.readFileSync(path.join(root, rel), 'utf-8') };
+  }
   if (SOURCES[file]) {
     const abs = path.join(root, SOURCES[file]);
     return { content: fs.existsSync(abs) ? fs.readFileSync(abs, 'utf-8') : `(there is no ${SOURCES[file]})` };
@@ -130,6 +141,16 @@ function pageProblem(p: string, content: string): string | null {
   return null;
 }
 
+// New pages from design are prepared and first seen in design (template DESIGN INGEST)
+function designFieldsMissing(content: string): string | null {
+  const data = matter(content).data;
+  const missing = [
+    data.canon_status !== 'prepared' ? 'canon_status: prepared' : '',
+    data.first_seen !== 'design' ? 'first_seen: design' : '',
+  ].filter(Boolean);
+  return missing.length ? missing.join(' and ') : null;
+}
+
 export function runTool(s: IngestState, name: string, input: Record<string, string>): ToolOutcome {
   if (!toolsFor(s.phase).some(t => t.name === name)) return error(`Unknown tool ${name}.`);
   if (s.phase === 'discuss' && isWrite(name)) {
@@ -150,6 +171,11 @@ export function runTool(s: IngestState, name: string, input: Record<string, stri
       case 'write_page': {
         const problem = pageProblem(input.path, input.content);
         if (problem) return error(problem);
+        const isPage = input.path !== 'index.md' && input.path !== 'log.md';
+        if (isPage && kindOf(s.id) !== 'session' && readReal(input.path) === null && !s.changes.some(c => c.path === input.path)) {
+          const missing = designFieldsMissing(input.content);
+          if (missing) return error(`A page created by a design ingest needs ${missing} in its frontmatter: it is design, not history.`);
+        }
         // A rewrite made without reading the page would drop whatever it holds now
         if (readReal(input.path) !== null && s.reads[input.path] === undefined && !s.changes.some(c => c.path === input.path)) {
           return error(`${input.path} already exists: call read_page first, then write the whole updated page.`);

@@ -123,4 +123,50 @@ describe('Ingest tools', () => {
     expect(runTool(s, 'finish', { summary: 'Two new NPCs.' })).toMatchObject({ finished: 'Two new NPCs.' });
     expect(runTool(s, 'delete_everything', {}).isError).toBe(true);
   });
+
+  describe('design', () => {
+    let d: IngestState;
+    const designPage = (extra: string) => `---\ntype: npc\nname: "Old Varga"\n${extra}---\n\n# Old Varga\n`;
+    beforeEach(() => {
+      write('raw/worldbuilding/regions.md', '# Regions\nThe Frozen North.\n');
+      write('raw/worldbuilding/lore/Old Gods.md', '# Old Gods\n');
+      write('raw/worldbuilding/2026-10-05-the-old-mill.md', '# The old mill\n');
+      write('wiki/log.md', '# Log\n');
+      d = newIngest('design-initial');
+      d.phase = 'working';
+    });
+
+    it('reads the initial design file by file, and nothing outside the list', () => {
+      const list = runTool(d, 'read_source', { file: 'source' }).content;
+      expect(list).toContain('raw/worldbuilding/lore/Old Gods.md');
+      expect(list).toContain('raw/worldbuilding/regions.md');
+      expect(list).not.toContain('old-mill');
+      expect(runTool(d, 'read_source', { file: 'source/lore/Old Gods.md' }).content).toBe('# Old Gods\n');
+      expect(runTool(d, 'read_source', { file: 'session' }).content).toContain('regions.md');
+      for (const bad of ['source/../world-bible.md', 'source/2026-10-05-the-old-mill.md', 'source/missing.md'])
+        expect(runTool(d, 'read_source', { file: bad }).isError).toBe(true);
+      const dated = newIngest('design-2026-10-05-the-old-mill');
+      expect(runTool(dated, 'read_source', { file: 'source' }).content).toBe('# The old mill\n');
+    });
+
+    it('keeps "session" as an alias in session ingests', () => {
+      expect(runTool(s, 'read_source', { file: 'source' }).content).toContain('returns to the crypt');
+    });
+
+    it('requires new design pages to be prepared and from design', () => {
+      const bad1 = runTool(d, 'write_page', { path: 'npcs/old-varga.md', content: designPage('canon_status: established\nfirst_seen: design\n') });
+      expect(bad1).toMatchObject({ isError: true, content: expect.stringContaining('canon_status: prepared') });
+      const bad2 = runTool(d, 'write_page', { path: 'npcs/old-varga.md', content: designPage('canon_status: prepared\n') });
+      expect(bad2).toMatchObject({ isError: true, content: expect.stringContaining('first_seen: design') });
+      expect(runTool(d, 'write_page', { path: 'npcs/old-varga.md', content: designPage('canon_status: prepared\nfirst_seen: design\n') }).staged?.kind).toBe('new');
+      // an existing established page can still be updated
+      runTool(d, 'read_page', { path: 'npcs/hilda.md' });
+      expect(runTool(d, 'write_page', { path: 'npcs/hilda.md', content: '---\ntype: npc\ncanon_status: established\n---\n# Hilda\nNear [[old-varga]].\n' }).isError).toBeFalsy();
+      // index.md has no frontmatter, even when the design ingest creates it
+      expect(runTool(d, 'write_page', { path: 'index.md', content: '# Index\n' }).isError).toBeFalsy();
+      // session ingests may create established pages
+      s.phase = 'working';
+      expect(runTool(s, 'write_page', { path: 'npcs/old-varga.md', content: designPage('canon_status: established\n') }).isError).toBeFalsy();
+    });
+  });
 });
