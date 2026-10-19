@@ -28,11 +28,11 @@ export default function IngestPage() {
       setOverview(next);
       // The open ingest, else the first session not ingested yet, else the last one
       const target =
-        id ?? currentRef.current ?? next.open ?? next.sessions.find(s => s.status !== 'ingested')?.id ?? next.sessions.at(-1)?.id ?? null;
+        id ?? currentRef.current ?? next.open ?? next.sources.find(s => s.status !== 'ingested')?.id ?? next.sources.at(-1)?.id ?? null;
       currentRef.current = target;
       setCurrent(target);
       if (target) {
-        const [state, source] = await Promise.all([ingestApi.state(target), ingestApi.recap(target)]);
+        const [state, source] = await Promise.all([ingestApi.state(target), ingestApi.source(target)]);
         if (currentRef.current !== target) return;
         setView(state);
         setRecap(source.text);
@@ -100,7 +100,7 @@ export default function IngestPage() {
   }
   if (!overview) return null;
 
-  const session = overview.sessions.find(s => s.id === current) ?? null;
+  const session = overview.sources.find(s => s.id === current) ?? null;
   const inReview = view?.phase === 'review';
 
   return (
@@ -118,7 +118,7 @@ export default function IngestPage() {
         ))}
       </nav>
       <div className="studio-col studio-col-steps glass">
-        <SessionList sessions={overview.sessions} current={current} onSelect={select} />
+        <SessionList sessions={overview.sources} current={current} onSelect={select} />
       </div>
       <div className="studio-col studio-col-chat glass">
         {notice && <div className="studio-result ok ingest-notice" role="status">{notice} <Link href="/">See the dashboard</Link></div>}

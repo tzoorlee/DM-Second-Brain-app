@@ -8,7 +8,7 @@ export type { Change, IngestEvent, SessionInfo };
 export interface IngestOverview {
   aiAvailable: boolean;
   model: string;
-  sessions: SessionInfo[];
+  sources: SessionInfo[];
   open: string | null;
   terminalCommand: string;
 }
@@ -68,7 +68,7 @@ export const ingestApi = {
     ),
   apply: (id: string, keepTheirs: string[], takeAgent: string[]) =>
     send(`/api/ingest/${id}/apply`, 'POST', { keepTheirs, takeAgent }).then(r => json<{ written: string[]; moved: { from: string; to: string }[] }>(r)),
-  recap: (id: string) => fetch(`/api/ingest/${id}/recap`, { cache: 'no-store' }).then(r => json<{ text: string }>(r)),
+  source: (id: string) => fetch(`/api/ingest/${id}/source`, { cache: 'no-store' }).then(r => json<{ text: string }>(r)),
   discard: (id: string) => send(`/api/ingest/${id}/discard`, 'POST').then(r => json<{ ok: true }>(r)),
   start: (id: string, onEvent: (e: IngestEvent) => void) => stream(`/api/ingest/${id}/start`, {}, onEvent),
   chat: (id: string, body: { message?: string; proceed?: true; continue?: true }, onEvent: (e: IngestEvent) => void) =>
