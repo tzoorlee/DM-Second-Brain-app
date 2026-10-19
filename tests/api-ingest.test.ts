@@ -10,6 +10,7 @@ import { POST as changes } from '../src/app/api/ingest/[id]/changes/route';
 import { POST as apply } from '../src/app/api/ingest/[id]/apply/route';
 import { POST as discard } from '../src/app/api/ingest/[id]/discard/route';
 import { GET as pageRoute } from '../src/app/api/ingest/[id]/page/route';
+import { GET as recap } from '../src/app/api/ingest/[id]/recap/route';
 import type { StudioModel } from '../src/app/utils/studio-ai';
 import { setStudioModel } from '../src/app/utils/studio-model';
 import { isolateEnv, makeCampaign, makeTempDir, writePage } from './helpers';
@@ -136,6 +137,11 @@ describe('Ingest API', () => {
     expect(await (await discard(json('POST'), ctx(ID))).json()).toEqual({ ok: true });
     expect((await (await overview()).json()).open).toBeNull();
     expect((await discard(json('POST'), ctx(ID))).status).toBe(409);
+  });
+
+  it('returns the recap', async () => {
+    expect(await (await recap(json('GET'), ctx(ID))).json()).toEqual({ text: '# Session 1\n' });
+    expect((await recap(json('GET'), ctx('session-09'))).status).toBe(404);
   });
 
   it('rejects bad ids, unknown ingests, and works only with a campaign', async () => {

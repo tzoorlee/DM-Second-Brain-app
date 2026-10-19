@@ -1362,3 +1362,133 @@ button.campaign-switcher[aria-expanded='true'] .campaign-switcher-caret {
   font-size: 13px;
   color: var(--text-primary);
 }
+
+/* Session ingest (reuses the Studio's three columns) */
+.ingest-now-link {
+  font-size: 13px;
+  text-align: center;
+  color: var(--accent-gold);
+}
+
+.ingest-staged {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent-teal);
+}
+
+.ingest-notice {
+  padding: 10px 16px 0;
+  text-align: left;
+}
+
+.ingest-recap {
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ingest-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+.ingest-changes h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 8px 0 4px;
+}
+
+.ingest-changes ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ingest-change {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 4px 8px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  overflow-wrap: anywhere;
+}
+
+.ingest-change:hover {
+  background: var(--bg-glass-hover);
+  box-shadow: none;
+}
+
+.ingest-change.current {
+  border-color: rgba(234, 179, 8, 0.3);
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.ingest-change.approved {
+  color: var(--success);
+}
+
+.ingest-change.rejected {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.ingest-page,
+.ingest-note {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ingest-diff {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 8px 0;
+  overflow-x: auto;
+}
+
+.ingest-diff > div {
+  padding: 0 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ingest-diff-added {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+}
+
+.ingest-diff-removed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+}
+
+.ingest-diff-skip {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ingest-conflict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 13px;
+}

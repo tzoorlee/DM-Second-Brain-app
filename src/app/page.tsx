@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import WikiMarkdown from './components/WikiMarkdown';
 import VaultSetup from './components/VaultSetup';
 import CampaignMenu from './components/CampaignMenu';
@@ -79,6 +80,8 @@ export default function Dashboard() {
   const [nextSessionNum, setNextSessionNum] = useState<number>(1);
   const [sessionNotes, setSessionNotes] = useState('');
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+  // After a recap is saved, the way to turn it into wiki pages
+  const [savedRecap, setSavedRecap] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const draftLoaded = useRef(false);
 
@@ -274,6 +277,7 @@ export default function Dashboard() {
 
       if (data.success) {
         setSaveStatus({ type: 'success', message: `Saved successfully as ${data.fileName}!` });
+        setSavedRecap(true);
         setSessionNotes('');
         fetchNextSessionNum();
         // Refresh entities search to make sure any new structural items are visible
@@ -722,6 +726,9 @@ export default function Dashboard() {
               >
                 {saveStatus.message}
               </div>
+            )}
+            {savedRecap && (
+              <Link href="/ingest" className="ingest-now-link">Ingest it now →</Link>
             )}
           </div>
         </div>
