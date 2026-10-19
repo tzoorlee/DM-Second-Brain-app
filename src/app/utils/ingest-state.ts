@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type Anthropic from '@anthropic-ai/sdk';
-import { INGEST_DIR, sessionFile } from './ingest-sessions';
+import { INGEST_DIR, sourceFiles } from './ingest-sources';
 import { writeFileAtomic } from './studio-steps';
 import { getCampaignRoot } from './vault';
 
@@ -67,7 +67,7 @@ export function newIngest(id: string): IngestState {
   const s: IngestState = {
     id, phase: 'discuss', messages: [], changes: [], summary: null,
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    sourceMtime: fs.statSync(path.join(getCampaignRoot(), sessionFile(id))).mtimeMs,
+    sourceMtime: fs.statSync(path.join(getCampaignRoot(), sourceFiles(id)[0])).mtimeMs,
     reads: {}, rounds: 0,
   };
   saveIngest(s);

@@ -87,7 +87,7 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
   if (!view || !open) {
     return (
       <section className="studio-chat studio-chat-off" aria-label="Chat">
-        <h2>Session {session.n}</h2>
+        <h2>{session.title}</h2>
         {session.status === 'ingested' ? (
           <p>This session is already in the wiki.</p>
         ) : (
@@ -116,7 +116,7 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
   };
 
   const discard = () => {
-    if (window.confirm(`Discard the ingest of session ${session.n}? The staged changes are deleted; the wiki is untouched.`)) onDiscard();
+    if (window.confirm(`Discard the ingest of ${session.title}? The staged changes are deleted; the wiki is untouched.`)) onDiscard();
   };
 
   return (

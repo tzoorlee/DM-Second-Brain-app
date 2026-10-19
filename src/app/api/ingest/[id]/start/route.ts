@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { startIngest } from '../../../../utils/ingest-agent';
-import { canStart } from '../../../../utils/ingest-sessions';
+import { canStart } from '../../../../utils/ingest-sources';
 import { getCampaignRoot } from '../../../../utils/vault';
 import { IdContext, ingestError, parseId, streamAgent } from '../../common';
 

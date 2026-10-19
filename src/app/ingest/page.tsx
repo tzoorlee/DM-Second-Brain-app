@@ -164,7 +164,7 @@ export default function IngestPage() {
           <section className="studio-draft" aria-label="Recap">
             <div className="studio-draft-header">
               <h2>Recap</h2>
-              <span className="studio-draft-file">{session?.file}</span>
+              <span className="studio-draft-file">{session?.files.join(", ")}</span>
             </div>
             <pre className="ingest-recap">{recap}</pre>
           </section>

@@ -2,14 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { approveAll, askChanges, conflicts, linkWarnings, setReview } from '../../../utils/ingest-apply';
-import { sessionFile } from '../../../utils/ingest-sessions';
+import { sourceFiles } from '../../../utils/ingest-sources';
 import { IngestState } from '../../../utils/ingest-state';
 import { getCampaignRoot } from '../../../utils/vault';
 import { BadRequest } from '../../studio/common';
 import { IdContext, ingestError, parseId, readJson, requireIngest } from '../common';
 
 function withChecks(s: IngestState) {
-  const recap = path.join(getCampaignRoot(), sessionFile(s.id));
+  const recap = path.join(getCampaignRoot(), sourceFiles(s.id)[0]);
   const open = s.phase === 'discuss' || s.phase === 'working' || s.phase === 'review';
   return {
     ...s,

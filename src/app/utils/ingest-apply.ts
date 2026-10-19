@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CampaignError } from './campaign-error';
-import { INGEST_DIR, isSessionIngested, sessionFile } from './ingest-sessions';
+import { fallbackLogLine, INGEST_DIR, isSourceIngested } from './ingest-sources';
 import { Change, IngestState, readReal, readStaged, realFile, saveIngest } from './ingest-state';
 import { WIKILINK } from './links';
 import { writeFileAtomic } from './studio-steps';
@@ -105,11 +105,11 @@ export function applyIngest(
   }
 
   // The session must read as ingested even if the DM rejected the agent's log entry
-  if (!isSessionIngested(s.id)) {
+  if (!isSourceIngested(s.id)) {
     const log = readReal('log.md') ?? '# Log\n';
     writeFileAtomic(
       realFile('log.md'),
-      `${log.replace(/\n*$/, '\n\n')}## [unknown date | ${s.id}] ingest — applied from the app (${sessionFile(s.id)})\n`,
+      `${log.replace(/\n*$/, '\n\n')}${fallbackLogLine(s.id)}\n`,
     );
   }
 

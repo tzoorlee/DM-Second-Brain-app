@@ -2,8 +2,8 @@
 
 import { SessionInfo } from './api';
 
-const MARKS: Record<SessionInfo['status'], string> = { 'not-ingested': '○', 'in-progress': '◐', ingested: '✓' };
-const LABELS: Record<SessionInfo['status'], string> = { 'not-ingested': 'Not ingested', 'in-progress': 'In progress', ingested: 'Ingested' };
+const MARKS: Record<SessionInfo['status'], string> = { 'not-ingested': '○', 'in-progress': '◐', ingested: '✓', 'invalid-name': '!' };
+const LABELS: Record<SessionInfo['status'], string> = { 'not-ingested': 'Not ingested', 'in-progress': 'In progress', ingested: 'Ingested', 'invalid-name': 'Rename to YYYY-MM-DD-<slug>.md' };
 
 interface SessionListProps {
   sessions: SessionInfo[];
@@ -29,7 +29,7 @@ export default function SessionList({ sessions, current, onSelect }: SessionList
               >
                 <span className="studio-step-mark" aria-hidden="true">{MARKS[s.status]}</span>
                 <span className="studio-step-title">
-                  Session {s.n}
+                  {s.title}
                   <span className="studio-step-usage">{LABELS[s.status]}</span>
                 </span>
               </button>

@@ -1,5 +1,5 @@
 import type { IngestEvent } from '../../utils/ingest-agent';
-import type { SessionInfo } from '../../utils/ingest-sessions';
+import type { SourceInfo as SessionInfo } from '../../utils/ingest-sources';
 import type { Change, IngestState } from '../../utils/ingest-state';
 
 export type { Change, IngestEvent, SessionInfo };

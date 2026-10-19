@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import type Anthropic from '@anthropic-ai/sdk';
-import { sessionFile } from './ingest-sessions';
+import { sourceFiles } from './ingest-sources';
 import { Change, IngestPhase, IngestState, isWikiPath, readReal, readStaged, readWikiPage, stageMove, stagePage } from './ingest-state';
 import { searchEntities } from './search';
 import { isDmSecretsHeading } from './secrets';
@@ -70,7 +70,7 @@ const SOURCES: Record<string, string> = { 'world-bible': 'raw/world-bible.md', '
 
 function readSource(s: IngestState, file: string): ToolOutcome {
   const root = getCampaignRoot();
-  if (file === 'session') return { content: fs.readFileSync(path.join(root, sessionFile(s.id)), 'utf-8') };
+  if (file === 'session') return { content: fs.readFileSync(path.join(root, sourceFiles(s.id)[0]), 'utf-8') };
   if (SOURCES[file]) {
     const abs = path.join(root, SOURCES[file]);
     return { content: fs.existsSync(abs) ? fs.readFileSync(abs, 'utf-8') : `(there is no ${SOURCES[file]})` };
