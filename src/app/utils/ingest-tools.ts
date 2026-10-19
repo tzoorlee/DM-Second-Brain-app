@@ -3,7 +3,7 @@ import path from 'path';
 import matter from 'gray-matter';
 import type Anthropic from '@anthropic-ai/sdk';
 import { sessionFile } from './ingest-sessions';
-import { Change, IngestPhase, IngestState, isWikiPath, readStaged, readWikiPage, stageMove, stagePage } from './ingest-state';
+import { Change, IngestPhase, IngestState, isWikiPath, readReal, readStaged, readWikiPage, stageMove, stagePage } from './ingest-state';
 import { searchEntities } from './search';
 import { isDmSecretsHeading } from './secrets';
 import { getCampaignRoot } from './vault';
@@ -92,8 +92,7 @@ function listPages(s: IngestState, folder: string): ToolOutcome {
   const prefix = folder.replace(/\/+$/, '');
   const under = (p: string) => !prefix || p.startsWith(prefix + '/');
   const staged = new Set(s.changes.map(c => c.path));
-  const real = listWikiFiles()
-    .map(f => f.relativePath.split(path.sep).join('/'))
+  const real = [...listWikiFiles().map(f => f.relativePath.split(path.sep).join('/')), ...['index.md', 'log.md'].filter(p => readReal(p) !== null)]
     .filter(p => !path.basename(p).startsWith('_') && !isMovedAway(s, p));
   const all = [...new Set([...real, ...staged])].filter(under).sort();
   return { content: all.map(p => (staged.has(p) ? `${p} (staged)` : p)).join('\n') || `(no pages under ${folder || 'wiki/'})` };
@@ -151,10 +150,17 @@ export function runTool(s: IngestState, name: string, input: Record<string, stri
       case 'write_page': {
         const problem = pageProblem(input.path, input.content);
         if (problem) return error(problem);
+        // A rewrite made without reading the page would drop whatever it holds now
+        if (readReal(input.path) !== null && s.reads[input.path] === undefined && !s.changes.some(c => c.path === input.path)) {
+          return error(`${input.path} already exists: call read_page first, then write the whole updated page.`);
+        }
         return { content: `Staged ${input.path}.`, staged: stagePage(s, input.path, input.content) };
       }
-      case 'move_page':
-        return { content: `Staged the move ${input.from} → ${input.to}.`, staged: stageMove(s, input.from, input.to) };
+      case 'move_page': {
+        const moved = stageMove(s, input.from, input.to);
+        if (!moved) return { content: `${input.to} is back where it was: no move left to apply.` };
+        return { content: `Staged the move ${input.from} → ${input.to}.`, staged: moved };
+      }
       case 'append_log': {
         if (!input.line.startsWith('## [')) return error('A log entry starts with "## [", e.g. "## [2026-02-01 | session-03] ingest — …".');
         // Read like a page, so apply sees a hand edit of the real log as a conflict

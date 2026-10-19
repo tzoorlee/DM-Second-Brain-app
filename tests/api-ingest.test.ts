@@ -127,6 +127,28 @@ describe('Ingest API', () => {
     expect(fs.readFileSync(hilda, 'utf-8')).toBe('# DM edit\n');
   });
 
+  it('a review request that arrives during apply cannot reopen the ingest', async () => {
+    await events(await start(json('POST'), ctx(ID)));
+    replies = [[toolUse('write_page', { path: 'npcs/varn.md', content: PAGE }), toolUse('finish', { summary: 's' })]];
+    await events(await chat(json('POST', { proceed: true }), ctx(ID)));
+    await putIngest(json('PUT', { approveAll: true }), ctx(ID));
+    // the PUT's body arrives only after the apply is done
+    let send!: () => void;
+    const body = new ReadableStream({
+      async start(controller) {
+        await new Promise<void>(r => (send = r));
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ path: 'npcs/varn.md', review: 'rejected' })));
+        controller.close();
+      },
+    });
+    const late = putIngest(new Request('http://localhost/x', { method: 'PUT', body, duplex: 'half' } as RequestInit), ctx(ID));
+    await new Promise(r => setTimeout(r, 20));
+    expect((await apply(json('POST', {}), ctx(ID))).status).toBe(200);
+    send();
+    expect((await late).status).toBe(409);
+    expect((await (await getIngest(json('GET'), ctx(ID))).json()).phase).toBe('applied');
+  });
+
   it('refuses to discard while the agent is working', async () => {
     await events(await start(json('POST'), ctx(ID)));
     let release!: () => void;

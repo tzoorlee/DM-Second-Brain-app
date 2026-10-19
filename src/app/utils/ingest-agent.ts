@@ -73,7 +73,8 @@ function addUserText(messages: MessageParam[], text: string) {
   }
 }
 
-const PROCEED_WORDS = /^(proceed|go ahead|go|ok,? (proceed|go)|procedi|vai|ok,? vai)[.!]?$/i;
+// Only an explicit word: "go" or "vai" can be an answer to the agent's question
+const PROCEED_WORDS = /^(ok,? )?(proceed|procedi)[.!]?$/i;
 
 // One exchange at a time per ingest: a second request while the agent works would fork the state
 const running = new Set<string>();

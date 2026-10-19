@@ -22,8 +22,13 @@ const STAGE_TOOLS: Record<string, (input: Record<string, string>) => string> = {
 };
 
 // The saved conversation as bubbles: the DM's words, the agent's text, and "✎ path" for each staged write
-function bubblesOf(view: IngestView): Bubble[] {
+export function bubblesOf(view: IngestView): Bubble[] {
   const bubbles: Bubble[] = [];
+  // Writes the app refused (checks, or the discussion phase) staged nothing
+  const refused = new Set(
+    view.messages.flatMap(m => (typeof m.content === 'string' ? [] : m.content))
+      .flatMap(b => (b.type === 'tool_result' && b.is_error ? [b.tool_use_id] : [])),
+  );
   for (const m of view.messages) {
     if (typeof m.content === 'string') {
       bubbles.push({ who: m.role === 'user' ? 'dm' : 'ai', text: m.content });
@@ -32,7 +37,7 @@ function bubblesOf(view: IngestView): Bubble[] {
     const text = m.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
     if (text) bubbles.push({ who: m.role === 'user' ? 'dm' : 'ai', text });
     for (const b of m.content) {
-      if (b.type === 'tool_use' && STAGE_TOOLS[b.name]) bubbles.push({ who: 'staged', text: STAGE_TOOLS[b.name](b.input as Record<string, string>) });
+      if (b.type === 'tool_use' && STAGE_TOOLS[b.name] && !refused.has(b.id)) bubbles.push({ who: 'staged', text: STAGE_TOOLS[b.name](b.input as Record<string, string>) });
     }
   }
   return bubbles;

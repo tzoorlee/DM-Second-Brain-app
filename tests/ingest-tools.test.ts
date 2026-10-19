@@ -56,6 +56,7 @@ describe('Ingest tools', () => {
     expect(runTool(s, 'list_pages', { folder: 'npcs' }).content.split('\n')).toEqual(['npcs/brother-varn.md (staged)', 'npcs/hilda.md']);
     expect(runTool(s, 'list_pages', { folder: '' }).content).toContain('quests/active/crypt.md');
     expect(runTool(s, 'list_pages', { folder: '' }).content).not.toContain('_template');
+    expect(runTool(s, 'list_pages', { folder: '' }).content.split('\n')).toContain('log.md');
     expect(runTool(s, 'search_wiki', { query: 'tankard' }).content).toContain('npcs/hilda.md — Hilda');
     expect(runTool(s, 'search_wiki', { query: 'cultist' }).content).toContain('npcs/brother-varn.md (staged)');
     expect(runTool(s, 'read_page', { path: 'npcs/hilda.md' }).content).toContain('Rusty Tankard');
@@ -86,6 +87,14 @@ describe('Ingest tools', () => {
     expect(ok.staged).toEqual({ path: 'npcs/x.md', kind: 'new', review: 'pending' });
     // index.md needs no frontmatter
     expect(runTool(s, 'write_page', { path: 'index.md', content: '# Index\n' }).staged?.kind).toBe('new');
+  });
+
+  it('refuses to rewrite an existing page it has not read', () => {
+    s.phase = 'working';
+    const blind = runTool(s, 'write_page', { path: 'npcs/hilda.md', content: page('Hilda') });
+    expect(blind).toMatchObject({ isError: true, content: expect.stringMatching(/read_page/) });
+    runTool(s, 'read_page', { path: 'npcs/hilda.md' });
+    expect(runTool(s, 'write_page', { path: 'npcs/hilda.md', content: page('Hilda') }).isError).toBeFalsy();
   });
 
   it('appends log lines to a staged copy of the real log', () => {
