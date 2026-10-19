@@ -99,7 +99,11 @@ describe('Ingest tools', () => {
 
   it('appends log lines to a staged copy of the real log', () => {
     s.phase = 'working';
-    expect(runTool(s, 'append_log', { line: 'session 3 ingested' }).isError).toBe(true);
+    const bad = runTool(s, 'append_log', { line: 'session 3 ingested' });
+    expect(bad.isError).toBe(true);
+    // the example fits sessions and design alike
+    expect(bad.content).toContain('## [design] design —');
+    expect(bad.content).toContain('| session-NN]');
     runTool(s, 'append_log', { line: '## [2026-02-01 | session-03] ingest — the crypt again' });
     const r = runTool(s, 'append_log', { line: '## [2026-02-01 | session-03] lint — fixed links' });
     expect(r.staged).toEqual({ path: 'log.md', kind: 'changed', review: 'pending' });

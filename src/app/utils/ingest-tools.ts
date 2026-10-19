@@ -193,7 +193,7 @@ export function runTool(s: IngestState, name: string, input: Record<string, stri
         return { content: `Staged the move ${input.from} → ${input.to}.`, staged: moved };
       }
       case 'append_log': {
-        if (!input.line.startsWith('## [')) return error('A log entry starts with "## [", e.g. "## [2026-02-01 | session-03] ingest — …".');
+        if (!input.line.startsWith('## [')) return error('A log entry starts with "## [": "## [<in-world date> | session-NN] ingest — <title>" for a session, "## [design] design — <title> (raw/worldbuilding/…)" for design.');
         // Read like a page, so apply sees a hand edit of the real log as a conflict
         const log = readWikiPage(s, 'log.md') ?? '# Log\n';
         return { content: 'Added to the staged log.', staged: stagePage(s, 'log.md', `${log.replace(/\n*$/, '\n\n')}${input.line.trim()}\n`) };

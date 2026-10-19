@@ -94,6 +94,15 @@ describe('Ingest sources', () => {
       expect(isSourceIngested('design-initial')).toBe(true);
     });
 
+    it('queues a same-day "-2" Prepare after the original', () => {
+      write('raw/worldbuilding/2026-10-05-the-old-mill-2.md', '# Mill again\n');
+      write('raw/worldbuilding/2026-10-05-the-old-mill-10.md', '# Mill tenth\n');
+      const ids = design().map(s => s.id);
+      expect(ids.indexOf('design-2026-10-05-the-old-mill')).toBeLessThan(ids.indexOf('design-2026-10-05-the-old-mill-2'));
+      expect(ids.indexOf('design-2026-10-05-the-old-mill-2')).toBeLessThan(ids.indexOf('design-2026-10-05-the-old-mill-10'));
+      expect(ids.indexOf('design-2026-10-05-the-old-mill-10')).toBeLessThan(ids.indexOf('design-2026-10-20-the-frozen-north'));
+    });
+
     it('accepts terminal design lines written loosely', () => {
       for (const line of ['## [design] Design - World of Eldoria', '## [design] design – Eldoria', '## [setup]  DESIGN — Eldoria']) {
         write('wiki/log.md', `# Log\n\n${line}\n`);

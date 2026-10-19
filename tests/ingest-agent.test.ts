@@ -67,6 +67,10 @@ describe('Ingest agent', () => {
   it('builds the system prompt from the preamble, CLAUDE.md and TEMPLATES.md', async () => {
     const system = await ingestSystem(async () => 'unused');
     const all = system.map(b => b.text).join('\n');
+    // the preamble fits every kind, and still carries the session log rule for ingests opened by 0.10
+    const preamble = system[0].text;
+    expect(preamble).not.toMatch(/recap/i);
+    expect(preamble).toContain('"| session-NN]"');
     expect(all).toContain('companion app');
     expect(all).toContain('INGEST workflow here.');
     expect(all).toContain('npc: type, name');

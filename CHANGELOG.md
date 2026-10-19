@@ -7,6 +7,16 @@ versioning follows [Semantic Versioning](https://semver.org/).
 Versions up to 0.3.2 were released as `dashboard/` inside the
 [DM-Second-Brain template](https://github.com/tzoorlee/DM-Second-Brain/blob/main/CHANGELOG.md).
 
+## [0.11.2] - 2026-10-19
+
+### Fixed
+
+- Design ingest:
+  - a second Prepare of the same day and title (`…-2.md`) is queued after the original, and `-2` before `-10`;
+  - the agent's instructions no longer speak of a "recap" for design;
+  - the `append_log` example now shows both the session and the design format;
+  - session ingests left open by 0.10 keep the `| session-NN]` log rule, so apply doesn't add a second log line.
+
 ## [0.11.1] - 2026-10-19
 
 ### Fixed
