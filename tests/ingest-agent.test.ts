@@ -13,7 +13,7 @@ type Reply = () => Anthropic.Beta.Messages.BetaMessage;
 const message = (content: Block[], stop: Anthropic.Beta.Messages.BetaStopReason = 'end_turn') =>
   ({
     id: 'msg', type: 'message', role: 'assistant', model: 'fake', content, stop_reason: stop, stop_sequence: null,
-    usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 2, cache_creation_input_tokens: 0 },
+    usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 2, cache_creation_input_tokens: 1 },
   }) as unknown as Anthropic.Beta.Messages.BetaMessage;
 const text = (t: string) => ({ type: 'text', text: t, citations: null }) as unknown as Block;
 let ids = 0;
@@ -123,7 +123,7 @@ describe('Ingest agent', () => {
     const s = loadIngest(ID)!;
     expect(s).toMatchObject({ phase: 'review', summary: 'Added Brother Varn.' });
     expect(s.changes.map(ch => ch.path)).toEqual(['npcs/brother-varn.md', 'log.md']);
-    expect(s.usage.input).toBe(50);
+    expect(s.usage).toEqual({ input: 50, output: 25, cacheRead: 10, cacheWrite: 5 });
     expect(model.calls).toHaveLength(5);
   });
 

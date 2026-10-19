@@ -25,7 +25,8 @@ export interface IngestState {
   messages: Anthropic.Beta.Messages.BetaMessageParam[];
   changes: Change[];
   summary: string | null;
-  usage: { input: number; output: number; cacheRead: number };
+  // cacheWrite: tokens written to the prompt cache, billed above plain input
+  usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
   // The recap's mtime when the ingest started
   sourceMtime: number;
   // wiki path → the real file's mtime when the agent first read it
@@ -65,7 +66,7 @@ export function newIngest(id: string): IngestState {
   fs.rmSync(stagedDir(id), { recursive: true, force: true });
   const s: IngestState = {
     id, phase: 'discuss', messages: [], changes: [], summary: null,
-    usage: { input: 0, output: 0, cacheRead: 0 },
+    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     sourceMtime: fs.statSync(path.join(getCampaignRoot(), sessionFile(id))).mtimeMs,
     reads: {}, rounds: 0,
   };

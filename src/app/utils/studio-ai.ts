@@ -22,7 +22,8 @@ export interface TurnParams {
   system: TextBlockParam[];
   messages: MessageParam[];
   tools: Tool[];
-  // Clears old tool results server-side (the ingest agent reads many pages)
+  // For the ingest agent's long tool loop: caches the growing history and clears old
+  // tool results server-side (it reads many pages)
   contextEditing?: boolean;
 }
 
@@ -385,7 +386,9 @@ export function createAnthropicModel(mode: StudioMode = 'setup'): StudioModel {
         betas: contextEditing ? [FALLBACK_BETA, CONTEXT_BETA] : [FALLBACK_BETA],
         fallbacks: 'default',
         thinking: { type: 'adaptive' },
-        ...(contextEditing ? { context_management: { edits: [{ type: 'clear_tool_uses_20250919' as const }] } } : {}),
+        ...(contextEditing
+          ? { context_management: { edits: [{ type: 'clear_tool_uses_20250919' as const }] }, cache_control: { type: 'ephemeral' as const } }
+          : {}),
         system,
         tools,
         messages,

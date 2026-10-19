@@ -128,7 +128,9 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
       </div>
       {phase === 'review' ? (
         <div className="studio-send">
-          <p className="studio-step-usage">The agent is done: review its changes on the right.</p>
+          <p className="studio-step-usage">
+            {live.busy ? 'Working… the agent is redoing the pages you asked for.' : 'The agent is done: review its changes on the right.'}
+          </p>
           <div className="studio-send-actions">
             <button type="button" className="secondary" onClick={discard} disabled={live.busy}>Discard</button>
           </div>
@@ -157,7 +159,7 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
             <button type="button" className="secondary" onClick={discard} disabled={live.busy}>Discard</button>
           </div>
           <p className="studio-step-usage">
-            Tokens: {view.usage.input.toLocaleString()} in · {view.usage.output.toLocaleString()} out · {view.usage.cacheRead.toLocaleString()} cached
+            Tokens: {view.usage.input.toLocaleString()} in · {view.usage.output.toLocaleString()} out · {view.usage.cacheRead.toLocaleString()} cache reads · {(view.usage.cacheWrite ?? 0).toLocaleString()} cache writes
           </p>
         </form>
       )}

@@ -39,7 +39,7 @@ describe('Ingest state', () => {
 
   it('starts in discuss with the recap mtime and saves/loads', () => {
     const s = newIngest(ID);
-    expect(s).toMatchObject({ id: ID, phase: 'discuss', messages: [], changes: [], summary: null, reads: {}, rounds: 0 });
+    expect(s).toMatchObject({ id: ID, phase: 'discuss', messages: [], changes: [], summary: null, reads: {}, rounds: 0, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } });
     expect(s.sourceMtime).toBe(mtime(`raw/sessions/${ID}.md`));
     expect(loadIngest(ID)).toEqual(s);
     s.phase = 'working';

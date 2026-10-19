@@ -95,6 +95,7 @@ async function exchange(s: IngestState, model: StudioModel, emit: Emit): Promise
       s.usage.input += reply.usage.input_tokens;
       s.usage.output += reply.usage.output_tokens;
       s.usage.cacheRead += reply.usage.cache_read_input_tokens ?? 0;
+      s.usage.cacheWrite = (s.usage.cacheWrite ?? 0) + (reply.usage.cache_creation_input_tokens ?? 0);
       s.rounds++;
       if (reply.stop_reason === 'refusal') {
         saveIngest(s);
