@@ -1,20 +1,16 @@
-import fs from 'fs';
-import path from 'path';
 import { NextResponse } from 'next/server';
 import { approveAll, askChanges, conflicts, linkWarnings, setReview } from '../../../utils/ingest-apply';
-import { sessionFile } from '../../../utils/ingest-sessions';
-import { IngestState } from '../../../utils/ingest-state';
+import { IngestState, sourceChanged } from '../../../utils/ingest-state';
 import { getCampaignRoot } from '../../../utils/vault';
 import { BadRequest } from '../../studio/common';
 import { IdContext, ingestError, parseId, readJson, requireIngest } from '../common';
 
 function withChecks(s: IngestState) {
-  const recap = path.join(getCampaignRoot(), sessionFile(s.id));
   const open = s.phase === 'discuss' || s.phase === 'working' || s.phase === 'review';
   return {
     ...s,
-    // The recap was edited after the ingest started: the DM may want to restart
-    sourceChanged: open && fs.existsSync(recap) && fs.statSync(recap).mtimeMs !== s.sourceMtime,
+    // The material was edited after the ingest started: the DM may want to restart
+    sourceChanged: open && sourceChanged(s),
     linkWarnings: s.phase === 'review' ? linkWarnings(s) : [],
     conflicts: s.phase === 'review' ? conflicts(s) : [],
   };

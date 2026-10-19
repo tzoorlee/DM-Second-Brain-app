@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyIngest, approveAll, askChanges, conflicts, linkWarnings, setReview } from '../src/app/utils/ingest-apply';
-import { isSessionIngested } from '../src/app/utils/ingest-sessions';
+import { isSourceIngested } from '../src/app/utils/ingest-sources';
 import { IngestState, loadIngest, newIngest, saveIngest } from '../src/app/utils/ingest-state';
 import { runTool } from '../src/app/utils/ingest-tools';
 import { isolateEnv, makeCampaign, makeTempDir, writePage } from './helpers';
@@ -109,7 +109,7 @@ describe('Ingest review and apply', () => {
     expect(exists('wiki/quests/active/crypt.md')).toBe(false);
     expect(read('wiki/quests/completed/crypt.md')).toContain('# Crypt');
     expect(read('wiki/log.md')).toContain(`| ${ID}] ingest — Varn`);
-    expect(isSessionIngested(ID)).toBe(true);
+    expect(isSourceIngested(ID)).toBe(true);
     const after = loadIngest(ID)!;
     expect(after.phase).toBe('applied');
     expect(exists(`.dm-second-brain/ingest/${ID}/staged`)).toBe(false);
@@ -119,11 +119,25 @@ describe('Ingest review and apply', () => {
     expect(() => applyIngest(after)).toThrow();
   });
 
+  it('adds the design fallback line when the log was rejected', () => {
+    fs.mkdirSync(path.join(root, 'raw', 'worldbuilding'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'raw', 'worldbuilding', '2026-10-05-the-old-mill.md'), '# Mill\n');
+    fs.writeFileSync(path.join(root, 'wiki', 'log.md'), `# Log\n\n## [x | ${ID}] ingest — s1\n`);
+    const d = newIngest('design-2026-10-05-the-old-mill');
+    d.phase = 'working';
+    runTool(d, 'append_log', { line: '## [design] design — The old mill (raw/worldbuilding/2026-10-05-the-old-mill.md)' });
+    d.phase = 'review';
+    setReview(d, 'log.md', 'rejected');
+    applyIngest(d);
+    expect(read('wiki/log.md')).toContain('## [design] design — applied from the app (raw/worldbuilding/2026-10-05-the-old-mill.md)');
+    expect(isSourceIngested('design-2026-10-05-the-old-mill')).toBe(true);
+  });
+
   it('adds a fallback log line when the log was rejected', () => {
     approveAll(s);
     setReview(s, 'log.md', 'rejected');
     applyIngest(s);
     expect(read('wiki/log.md')).toBe(`# Log\n\n## [unknown date | ${ID}] ingest — applied from the app (raw/sessions/${ID}.md)\n`);
-    expect(isSessionIngested(ID)).toBe(true);
+    expect(isSourceIngested(ID)).toBe(true);
   });
 });

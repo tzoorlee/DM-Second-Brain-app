@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { StudioOverview, studioApi } from './api';
 
@@ -50,8 +51,10 @@ export default function SummaryStep({ overview, onChanged }: { overview: StudioO
       <h3>Next: the design ingest</h3>
       <p>
         Your files are in <code>raw/</code>. The agent turns them into wiki pages, marked <em>prepared</em> until you play
-        them. Run this in a terminal, then answer its questions:
+        them. Do it in the app, where you review every page before it is written:
       </p>
+      <p><Link href="/ingest?source=design-initial" className="studio-ingest-link">Ingest in the app →</Link></p>
+      <p>Or run this in a terminal, then answer its questions:</p>
       <pre className="studio-command">{overview.ingestCommand}</pre>
       <button type="button" className="secondary" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
       {overview.inheritedFrom && overview.inheritedIngestCommand && (

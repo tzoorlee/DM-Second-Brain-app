@@ -10,7 +10,7 @@ import { POST as changes } from '../src/app/api/ingest/[id]/changes/route';
 import { POST as apply } from '../src/app/api/ingest/[id]/apply/route';
 import { POST as discard } from '../src/app/api/ingest/[id]/discard/route';
 import { GET as pageRoute } from '../src/app/api/ingest/[id]/page/route';
-import { GET as recap } from '../src/app/api/ingest/[id]/recap/route';
+import { GET as source } from '../src/app/api/ingest/[id]/source/route';
 import type { StudioModel } from '../src/app/utils/studio-ai';
 import { setStudioModel } from '../src/app/utils/studio-model';
 import { isolateEnv, makeCampaign, makeTempDir, writePage } from './helpers';
@@ -66,7 +66,7 @@ describe('Ingest API', () => {
   it('GET /api/ingest lists sessions and the AI', async () => {
     const body = await (await overview()).json();
     expect(body).toMatchObject({ aiAvailable: true, model: 'fake-model', open: null });
-    expect(body.sessions.map((s: { id: string; status: string }) => `${s.id}:${s.status}`)).toEqual(['session-01:not-ingested', 'session-02:not-ingested']);
+    expect(body.sources.map((s: { id: string; status: string }) => `${s.id}:${s.status}`)).toEqual(['session-01:not-ingested', 'session-02:not-ingested']);
     expect(body.terminalCommand).toContain(`claude "ingest raw/sessions/${ID}.md"`);
   });
 
@@ -91,7 +91,7 @@ describe('Ingest API', () => {
     const applied = await (await apply(json('POST', {}), ctx(ID))).json();
     expect(applied).toEqual({ written: ['npcs/varn.md'], moved: [] });
     expect(fs.existsSync(path.join(root, 'wiki', 'npcs', 'varn.md'))).toBe(true);
-    expect((await (await overview()).json()).sessions[0].status).toBe('ingested');
+    expect((await (await overview()).json()).sources[0].status).toBe('ingested');
   });
 
   it('asks for changes and sends them to the agent', async () => {
@@ -179,8 +179,47 @@ describe('Ingest API', () => {
   });
 
   it('returns the recap', async () => {
-    expect(await (await recap(json('GET'), ctx(ID))).json()).toEqual({ text: '# Session 1\n' });
-    expect((await recap(json('GET'), ctx('session-09'))).status).toBe(404);
+    expect(await (await source(json('GET'), ctx(ID))).json()).toEqual({ text: '# Session 1\n' });
+    expect((await source(json('GET'), ctx('session-09'))).status).toBe(404);
+  });
+
+  describe('design', () => {
+    beforeEach(() => {
+      fs.mkdirSync(path.join(root, 'raw', 'worldbuilding'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'raw', 'worldbuilding', 'regions.md'), '# Regions\n');
+      fs.writeFileSync(path.join(root, 'raw', 'worldbuilding', 'factions.md'), '# Factions\n');
+    });
+
+    it('shows the initial design material', async () => {
+      const { text } = await (await source(json('GET'), ctx('design-initial'))).json();
+      expect(text).toBe('### raw/worldbuilding/factions.md\n\n# Factions\n\n### raw/worldbuilding/regions.md\n\n# Regions\n');
+    });
+
+    it('runs a design ingest through the API', async () => {
+      const body = await (await overview()).json();
+      expect(body.sources.map((s: { id: string }) => s.id)).toEqual(['session-01', 'session-02', 'design-initial']);
+      await events(await start(json('POST'), ctx('design-initial')));
+      const page = '---\ntype: region\nname: "North"\ncanon_status: prepared\nfirst_seen: design\n---\n\n# North\n';
+      replies = [[toolUse('write_page', { path: 'regions/north.md', content: page }), toolUse('finish', { summary: 'North.' })]];
+      await events(await chat(json('POST', { proceed: true }), ctx('design-initial')));
+      await putIngest(json('PUT', { approveAll: true }), ctx('design-initial'));
+      expect((await apply(json('POST', {}), ctx('design-initial'))).status).toBe(200);
+      const after = await (await overview()).json();
+      expect(after.sources.find((s: { id: string }) => s.id === 'design-initial').status).toBe('ingested');
+    });
+
+    it('rejects ids outside the pattern', async () => {
+      for (const id of ['design-../x', 'design-invalid-0', 'design-2026-1-1-x'])
+        expect((await getIngest(json('GET'), ctx(id))).status).toBe(400);
+    });
+
+    it('gives the terminal command of the first source not ingested', async () => {
+      fs.writeFileSync(path.join(root, 'wiki', 'log.md'), '## [x | session-01] ingest\n## [x | session-02] ingest\n');
+      const body = await (await overview()).json();
+      expect(body.terminalCommand).toContain('claude "design ingest of raw/worldbuilding"');
+      // each source carries its own command, for the one on screen
+      expect(body.sources[0].command).toMatch(/^cd '.*' && claude "ingest raw\/sessions\/session-01.md"$/);
+    });
   });
 
   it('rejects bad ids, unknown ingests, and works only with a campaign', async () => {

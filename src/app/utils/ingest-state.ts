@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type Anthropic from '@anthropic-ai/sdk';
-import { INGEST_DIR, sessionFile } from './ingest-sessions';
+import { INGEST_DIR, isSourceId, sourceFiles } from './ingest-sources';
 import { writeFileAtomic } from './studio-steps';
 import { getCampaignRoot } from './vault';
 
@@ -27,8 +27,10 @@ export interface IngestState {
   summary: string | null;
   // cacheWrite: tokens written to the prompt cache, billed above plain input
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
-  // The recap's mtime when the ingest started
-  sourceMtime: number;
+  // The source files' state when the ingest started (sourceStampOf)
+  sourceStamp: string;
+  // Saved by 0.10 instead of sourceStamp: the recap's mtime
+  sourceMtime?: number;
   // wiki path → the real file's mtime when the agent first read it
   reads: Record<string, number>;
   rounds: number;
@@ -40,14 +42,16 @@ export const isWikiPath = (p: string) => /^[a-z0-9-]+(\/[a-z0-9-]+)*\.md$/.test(
 // The only files the ingest may write, relative to the campaign root. Kept apart from
 // the Studio's list: the Studio never writes wiki/.
 const ALLOWED = [
-  /^\.dm-second-brain\/ingest\/session-\d+\/(state\.json|staged\/[a-z0-9/-]+\.md)$/,
+  /^\.dm-second-brain\/ingest\/[a-z0-9-]+\/(state\.json|staged\/[a-z0-9/-]+\.md)$/,
   /^\.dm-second-brain\/TEMPLATES\.md$/,
   /^wiki\/[a-z0-9/-]+\.md$/,
 ];
 
 export function resolveForIngest(rel: string): string {
   const parts = rel.split('/');
-  if (parts.some(p => p === '..' || p === '.' || p === '') || !ALLOWED.some(r => r.test(rel))) {
+  // Under the ingest folder, the second segment must be a source id
+  const badId = rel.startsWith(`${INGEST_DIR}/`) && !isSourceId(parts[2] ?? '');
+  if (parts.some(p => p === '..' || p === '.' || p === '') || !ALLOWED.some(r => r.test(rel)) || badId) {
     throw new Error(`The ingest may not write "${rel}".`);
   }
   return path.join(getCampaignRoot(), ...parts);
@@ -67,11 +71,26 @@ export function newIngest(id: string): IngestState {
   const s: IngestState = {
     id, phase: 'discuss', messages: [], changes: [], summary: null,
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    sourceMtime: fs.statSync(path.join(getCampaignRoot(), sessionFile(id))).mtimeMs,
+    sourceStamp: sourceStampOf(id),
     reads: {}, rounds: 0,
   };
   saveIngest(s);
   return s;
+}
+
+// One file: its mtime. The initial design: "path:mtime" per file, so an edited, added or
+// removed file changes it.
+export function sourceStampOf(id: string): string {
+  const root = getCampaignRoot();
+  const mtime = (f: string) => (fs.existsSync(path.join(root, f)) ? fs.statSync(path.join(root, f)).mtimeMs : 0);
+  if (id !== 'design-initial') return String(mtime(sourceFiles(id)[0]));
+  return sourceFiles(id).map(f => `${f}:${mtime(f)}`).join('\n');
+}
+
+// The material changed after the ingest started: the DM may want to restart it
+export function sourceChanged(s: IngestState): boolean {
+  const saved = s.sourceStamp ?? (s.sourceMtime !== undefined ? String(s.sourceMtime) : undefined);
+  return saved !== sourceStampOf(s.id);
 }
 
 export function loadIngest(id: string): IngestState | null {

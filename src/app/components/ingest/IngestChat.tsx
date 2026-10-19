@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { IngestView, SessionInfo } from './api';
+import { IngestView, SourceInfo } from './api';
 
 export interface Bubble {
   who: 'dm' | 'ai' | 'staged';
@@ -50,7 +50,7 @@ export function canContinue(view: IngestView, error: string): boolean {
 }
 
 interface IngestChatProps {
-  session: SessionInfo;
+  session: SourceInfo;
   view: IngestView | null;
   aiAvailable: boolean;
   terminalCommand: string;
@@ -87,16 +87,16 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
   if (!view || !open) {
     return (
       <section className="studio-chat studio-chat-off" aria-label="Chat">
-        <h2>Session {session.n}</h2>
+        <h2>{session.title}</h2>
         {session.status === 'ingested' ? (
-          <p>This session is already in the wiki.</p>
+          <p>This is already in the wiki.</p>
         ) : (
           <>
             <p>
-              The agent reads the recap, discusses it with you, then prepares the wiki changes. Nothing reaches the wiki until you review and
+              The agent reads the material, discusses it with you, then prepares the wiki changes. Nothing reaches the wiki until you review and
               apply them.
             </p>
-            {phase === 'discarded' && <p className="studio-step-usage">The previous ingest of this session was discarded.</p>}
+            {phase === 'discarded' && <p className="studio-step-usage">The previous ingest of this was discarded.</p>}
             <div>
               <button type="button" onClick={onStart} disabled={live.busy}>{live.busy ? 'Starting…' : 'Start ingest'}</button>
             </div>
@@ -116,7 +116,7 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
   };
 
   const discard = () => {
-    if (window.confirm(`Discard the ingest of session ${session.n}? The staged changes are deleted; the wiki is untouched.`)) onDiscard();
+    if (window.confirm(`Discard the ingest of ${session.title}? The staged changes are deleted; the wiki is untouched.`)) onDiscard();
   };
 
   return (
@@ -124,7 +124,7 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
       <div className="studio-messages" aria-live="polite">
         {view.sourceChanged && (
           <div className="studio-issue warning" role="alert">
-            The recap changed after this ingest started. Discard and start again so the agent reads the new version.
+            The material changed after this ingest started. Discard and start again so the agent reads the new version.
           </div>
         )}
         {[...bubblesOf(view), ...live.bubbles].map((b, i) =>

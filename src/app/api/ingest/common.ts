@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { IngestEvent } from '../../utils/ingest-agent';
+import { isSourceId } from '../../utils/ingest-sources';
 import { IngestState, loadIngest } from '../../utils/ingest-state';
 import { getStudioModel } from '../../utils/studio-model';
 import { CampaignError } from '../../utils/campaign-error';
@@ -9,10 +10,10 @@ export { readJson, studioError as ingestError } from '../studio/common';
 
 export type IdContext = { params: Promise<{ id: string }> };
 
-// Only "session-NN" crosses the API, never a path
+// Only source ids cross the API, never a path
 export async function parseId({ params }: IdContext): Promise<string> {
   const { id } = await params;
-  if (!/^session-\d+$/.test(id)) throw new BadRequest(`"${id}" is not a session.`);
+  if (!isSourceId(id)) throw new BadRequest(`"${id}" is not something the app can ingest.`);
   return id;
 }
 

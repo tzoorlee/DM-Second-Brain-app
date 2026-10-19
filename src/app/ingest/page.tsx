@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import IngestChat, { Bubble, LiveExchange } from '../components/ingest/IngestChat';
 import ReviewPanel from '../components/ingest/ReviewPanel';
-import SessionList from '../components/ingest/SessionList';
-import { IngestEvent, IngestOverview, IngestView, ingestApi } from '../components/ingest/api';
+import SourceList from '../components/ingest/SourceList';
+import { IngestEvent, IngestOverview, IngestView, ingestApi, pickSource } from '../components/ingest/api';
 
-type Tab = 'sessions' | 'chat' | 'review';
+type Tab = 'sources' | 'chat' | 'review';
 
 const IDLE: LiveExchange = { busy: false, bubbles: [], error: '' };
 
@@ -15,7 +15,7 @@ export default function IngestPage() {
   const [overview, setOverview] = useState<IngestOverview | null>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [view, setView] = useState<IngestView | null>(null);
-  const [recap, setRecap] = useState('');
+  const [material, setMaterial] = useState('');
   const [live, setLive] = useState<LiveExchange>(IDLE);
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<Tab>('chat');
@@ -26,16 +26,14 @@ export default function IngestPage() {
     try {
       const next = await ingestApi.overview();
       setOverview(next);
-      // The open ingest, else the first session not ingested yet, else the last one
-      const target =
-        id ?? currentRef.current ?? next.open ?? next.sessions.find(s => s.status !== 'ingested')?.id ?? next.sessions.at(-1)?.id ?? null;
+      const target = pickSource(next.sources, id ?? null, currentRef.current, next.open);
       currentRef.current = target;
       setCurrent(target);
       if (target) {
-        const [state, source] = await Promise.all([ingestApi.state(target), ingestApi.recap(target)]);
+        const [state, source] = await Promise.all([ingestApi.state(target), ingestApi.source(target)]);
         if (currentRef.current !== target) return;
         setView(state);
-        setRecap(source.text);
+        setMaterial(source.text);
       }
       setError('');
     } catch (err) {
@@ -45,7 +43,9 @@ export default function IngestPage() {
 
   useEffect(() => {
     const load = async () => {
-      await refresh(new URLSearchParams(window.location.search).get('session') || undefined);
+      const params = new URLSearchParams(window.location.search);
+      // ?session= is the 0.10 link
+      await refresh(params.get('source') || params.get('session') || undefined);
     };
     load();
   }, [refresh]);
@@ -57,7 +57,7 @@ export default function IngestPage() {
     setNotice('');
     setLive(IDLE);
     setTab('chat');
-    window.history.replaceState(null, '', `/ingest?session=${id}`);
+    window.history.replaceState(null, '', `/ingest?source=${id}`);
     refresh(id);
   };
 
@@ -91,7 +91,7 @@ export default function IngestPage() {
     return (
       <main className="setup-screen">
         <div className="setup-card glass">
-          <h1>Ingest sessions</h1>
+          <h1>Ingest</h1>
           <div className="setup-problem" role="alert">{error}</div>
           <Link href="/">Back to the dashboard</Link>
         </div>
@@ -100,25 +100,25 @@ export default function IngestPage() {
   }
   if (!overview) return null;
 
-  const session = overview.sessions.find(s => s.id === current) ?? null;
+  const session = overview.sources.find(s => s.id === current) ?? null;
   const inReview = view?.phase === 'review';
 
   return (
-    <div className={`studio ingest tab-${tab === 'sessions' ? 'steps' : tab === 'chat' ? 'chat' : 'draft'}`}>
+    <div className={`studio ingest tab-${tab === 'sources' ? 'steps' : tab === 'chat' ? 'chat' : 'draft'}`}>
       <header className="studio-header glass">
         <Link href="/" className="studio-back">← Dashboard</Link>
-        <h1>Ingest sessions</h1>
+        <h1>Ingest</h1>
         <span className="studio-model">{overview.aiAvailable ? `AI: ${overview.model}` : 'AI not available'}</span>
       </header>
       <nav className="studio-tabs glass" aria-label="Panels">
-        {(['sessions', 'chat', 'review'] as const).map(t => (
+        {(['sources', 'chat', 'review'] as const).map(t => (
           <button key={t} type="button" className={tab === t ? undefined : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>
-            {t === 'sessions' ? 'Sessions' : t === 'chat' ? 'Chat' : inReview ? 'Review' : 'Recap'}
+            {t === 'sources' ? 'Sources' : t === 'chat' ? 'Chat' : inReview ? 'Review' : session?.kind === 'session' ? 'Recap' : 'Material'}
           </button>
         ))}
       </nav>
       <div className="studio-col studio-col-steps glass">
-        <SessionList sessions={overview.sessions} current={current} onSelect={select} />
+        <SourceList sources={overview.sources} current={current} onSelect={select} />
       </div>
       <div className="studio-col studio-col-chat glass">
         {notice && <div className="studio-result ok ingest-notice" role="status">{notice} <Link href="/">See the dashboard</Link></div>}
@@ -127,7 +127,7 @@ export default function IngestPage() {
             session={session}
             view={view}
             aiAvailable={overview.aiAvailable}
-            terminalCommand={overview.terminalCommand}
+            terminalCommand={session.command ?? overview.terminalCommand}
             live={live}
             onStart={() => run(null, onEvent => ingestApi.start(session.id, onEvent))}
             onSend={body => run(body.message ? { who: 'dm', text: body.message } : null, onEvent => ingestApi.chat(session.id, body, onEvent))}
@@ -141,7 +141,7 @@ export default function IngestPage() {
             }}
           />
         ) : (
-          <p className="studio-nochat">No session recaps yet. Write one in the dashboard and save it.</p>
+          <p className="studio-nochat">Nothing to ingest yet: save a session recap in the dashboard, or write design in the World Studio.</p>
         )}
       </div>
       <div className="studio-col studio-col-draft glass">
@@ -161,12 +161,14 @@ export default function IngestPage() {
             }}
           />
         ) : (
-          <section className="studio-draft" aria-label="Recap">
+          <section className="studio-draft" aria-label="Material">
             <div className="studio-draft-header">
-              <h2>Recap</h2>
-              <span className="studio-draft-file">{session?.file}</span>
+              <h2>{session?.kind === 'session' ? 'Recap' : 'Design material'}</h2>
+              <span className="studio-draft-file">
+                {session && session.files.length > 1 ? `raw/worldbuilding/ · ${session.files.length} files` : session?.files[0]}
+              </span>
             </div>
-            <pre className="ingest-recap">{recap}</pre>
+            <pre className="ingest-recap">{material}</pre>
           </section>
         )}
       </div>

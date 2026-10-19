@@ -1,14 +1,15 @@
 import type { IngestEvent } from '../../utils/ingest-agent';
-import type { SessionInfo } from '../../utils/ingest-sessions';
+import type { SourceInfo } from '../../utils/ingest-sources';
 import type { Change, IngestState } from '../../utils/ingest-state';
 
-export type { Change, IngestEvent, SessionInfo };
+export type { Change, IngestEvent, SourceInfo };
 
 // Answer of GET /api/ingest
 export interface IngestOverview {
   aiAvailable: boolean;
   model: string;
-  sessions: SessionInfo[];
+  // command: the same ingest from a terminal (null for an invalid name)
+  sources: (SourceInfo & { command: string | null })[];
   open: string | null;
   terminalCommand: string;
 }
@@ -68,10 +69,31 @@ export const ingestApi = {
     ),
   apply: (id: string, keepTheirs: string[], takeAgent: string[]) =>
     send(`/api/ingest/${id}/apply`, 'POST', { keepTheirs, takeAgent }).then(r => json<{ written: string[]; moved: { from: string; to: string }[] }>(r)),
-  recap: (id: string) => fetch(`/api/ingest/${id}/recap`, { cache: 'no-store' }).then(r => json<{ text: string }>(r)),
+  source: (id: string) => fetch(`/api/ingest/${id}/source`, { cache: 'no-store' }).then(r => json<{ text: string }>(r)),
   discard: (id: string) => send(`/api/ingest/${id}/discard`, 'POST').then(r => json<{ ok: true }>(r)),
   start: (id: string, onEvent: (e: IngestEvent) => void) => stream(`/api/ingest/${id}/start`, {}, onEvent),
   chat: (id: string, body: { message?: string; proceed?: true; continue?: true }, onEvent: (e: IngestEvent) => void) =>
     stream(`/api/ingest/${id}/chat`, body, onEvent),
   requestChanges: (id: string, onEvent: (e: IngestEvent) => void) => stream(`/api/ingest/${id}/changes`, {}, onEvent),
 };
+
+// The ingest id of a Studio item's file: a dated design file (+ Prepare). Interludes have none yet.
+export function idForItemFile(file: string): string | null {
+  const m = /^raw\/worldbuilding\/(\d{4}-\d{2}-\d{2}-[a-z0-9-]+)\.md$/.exec(file);
+  return m ? `design-${m[1]}` : null;
+}
+
+// The source to show: the one asked for if it exists, else the open ingest, the first not
+// ingested, or the last one. Invalid names (display only) are never picked.
+export function pickSource(
+  sources: { id: string; status: SourceInfo['status'] }[],
+  requested: string | null,
+  current: string | null,
+  open: string | null,
+): string | null {
+  const usable = sources.filter(s => s.status !== 'invalid-name');
+  const exists = (id: string | null) => (id && usable.some(s => s.id === id) ? id : null);
+  return (
+    exists(requested) ?? exists(current) ?? exists(open) ?? usable.find(s => s.status === 'not-ingested')?.id ?? usable.at(-1)?.id ?? null
+  );
+}

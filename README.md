@@ -142,10 +142,10 @@ the Studio still works: you write the drafts by hand.
 message. Drafts and conversations are saved in the campaign's `.dm-second-brain/` folder;
 the agent ignores it.
 
-## Session ingest
+## Ingest: sessions and design
 
 After a session, save the recap from the dashboard and choose **Ingest it now** (or
-**Ingest sessions** in the campaign menu). The ingest page does what the agent does in a
+**Ingest** in the campaign menu). The ingest page does what the agent does in a
 terminal with `claude "ingest raw/sessions/session-NN.md"`, following the campaign's
 `CLAUDE.md` and `TEMPLATES.md`, but nothing reaches the wiki until you approve it:
 
@@ -162,7 +162,21 @@ terminal with `claude "ingest raw/sessions/session-NN.md"`, following the campai
    hand meanwhile, the app shows the conflict and you choose: keep yours or take the
    agent's. The log then names the session, so it reads as ingested.
 
-Sessions are ingested one at a time and in order. Closing the page loses nothing: the
+**Design** goes through the same page, under **Design**:
+
+- **Initial design**: every undated file of `raw/worldbuilding/` (the World Studio's
+  worldbuilding and starting point, and anything you wrote there). Start it from the Studio's
+  summary step, **Ingest in the app**.
+- **Dated design files** (`raw/worldbuilding/YYYY-MM-DD-<slug>.md`, the Studio's
+  **+ Prepare**): each one once, in date order. **Ingest it now** in the Studio opens it.
+
+The agent follows the template's DESIGN INGEST. New pages are `prepared` with
+`first_seen: design` (the app refuses others), events aren't dated as having happened, and
+anything that contradicts an `established` page is flagged, not written. A file named with
+a date but not `YYYY-MM-DD-<slug>.md` is listed for you to rename.
+
+Sessions are ingested one at a time and in order, design in its own order; the two don't
+wait for each other, but only one ingest is open at a time. Closing the page loses nothing: the
 ingest resumes where it was. **Discard** drops it (the wiki is untouched) so you can start
 again, for example after editing the recap.
 
@@ -194,7 +208,7 @@ to Anthropic. Without credentials the page shows the terminal command instead.
 - `_template-*.md` starters, `index.md` and `log.md` are not listed.
 
 > The app acts as **you, the DM**: it writes your session notes into `raw/sessions/`, and
-> wiki pages only when you apply an ingest you reviewed (see [Session ingest](#session-ingest)).
+> wiki pages only when you apply an ingest you reviewed (see [Ingest](#ingest-sessions-and-design)).
 
 ## API
 
@@ -213,9 +227,10 @@ Campaigns are named by their folder name (the *id*), never by a path.
 - `GET /api/session` returns the next session number. `POST /api/session` saves a recap.
 - `/api/studio/*`: the World Studio (overview, steps, chat as NDJSON, approve, SRD,
   deviations). Steps are numbers; the browser never sends paths.
-- `/api/ingest/*`: session ingest (sessions and status; per session `session-NN`: state,
-  start, chat and requested changes as NDJSON, review, page diff, recap, apply, discard).
-  Sessions are ids; wiki paths are checked against the slug pattern.
+- `/api/ingest/*`: ingest of sessions and design (sources and status; per source id —
+  `session-NN`, `design-initial`, `design-YYYY-MM-DD-<slug>` — state, start, chat and
+  requested changes as NDJSON, review, page diff, source material, apply, discard). Only ids
+  cross the API; wiki paths are checked against the slug pattern.
 - `GET /api/campaigns` returns the mode (`campaigns-dir`, `vault-path` or `unconfigured`),
   the open campaign's id and title, and the campaigns in `CAMPAIGNS_DIR`.
 - `POST /api/campaigns` with `{ "name": "..." }` creates a campaign from the template and

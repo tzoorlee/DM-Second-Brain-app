@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server';
-import { listSessions, openIngest } from '../../utils/ingest-sessions';
+import { listSources, openIngest, terminalCommand } from '../../utils/ingest-sources';
 import { getStudioModel } from '../../utils/studio-model';
 import { getCampaignRoot } from '../../utils/vault';
 import { ingestError } from './common';
 
-// The sessions to ingest, the open ingest, and whether the AI can be used
+// What can be ingested (sessions and design), the open ingest, and whether the AI can be used
 export async function GET() {
   try {
     const root = getCampaignRoot();
     const model = getStudioModel('ingest');
-    const sessions = listSessions();
-    const next = sessions.find(s => s.status !== 'ingested');
+    // Single quotes so $, ` and " in the path stay literal when pasted in a shell
+    const cd = `cd '${root.replace(/'/g, `'\\''`)}' && `;
+    const sources = listSources().map(s => ({ ...s, command: s.status === 'invalid-name' ? null : cd + terminalCommand(s.id) }));
+    const next = sources.find(s => s.status === 'not-ingested' || s.status === 'in-progress');
     return NextResponse.json({
       aiAvailable: await model.available(),
       model: model.name,
-      sessions,
+      sources,
       open: openIngest(),
-      // Single quotes so $, ` and " in the path stay literal when pasted in a shell
-      terminalCommand: `cd '${root.replace(/'/g, `'\\''`)}' && claude "ingest ${next ? next.file : 'raw/sessions/session-NN.md'}"`,
+      terminalCommand: next?.command ?? `${cd}claude "ingest raw/sessions/session-NN.md"`,
     });
   } catch (error) {
     return ingestError(error);

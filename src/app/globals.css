@@ -1492,3 +1492,17 @@ button.campaign-switcher[aria-expanded='true'] .campaign-switcher-caret {
   margin-top: 6px;
   font-size: 13px;
 }
+
+.studio-ingest-link {
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.studio-steps h2 + ol + h2,
+.studio-steps h2 + p + h2 {
+  margin-top: 12px;
+}
+
+.studio-step.invalid-name {
+  opacity: 0.6;
+}
