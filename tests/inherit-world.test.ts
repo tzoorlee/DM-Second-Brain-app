@@ -44,6 +44,9 @@ describe('a new campaign from the world of another', () => {
     write(source, 'raw/srd/README.md', '# SRD');
     write(source, 'raw/setting/notes.md', '# Notes');
     write(source, 'raw/worldbuilding/factions.md', '# Factions\n- The Order.');
+    write(source, 'raw/worldbuilding/2026-10-19-the-old-mill.md', '# The old mill');
+    write(source, 'raw/worldbuilding/2026-10-20-Bad Name.md', '# Bad');
+    write(source, 'raw/worldbuilding/lore/2026-01-01-notes.md', '# Undated design in a subfolder');
     write(source, 'raw/sessions/session-01.md', '# Session 1');
     write(source, 'raw/interludes/2027-01-01-fire.md', '# Fire');
     write(source, '.dm-second-brain/studio/step-1.json', '{}');
@@ -65,7 +68,9 @@ describe('a new campaign from the world of another', () => {
     expect(read('raw/setting/from-silverbrook/characters/npcs/maren.md')).toContain('died in the great fire');
     expect(read('raw/setting/from-silverbrook/index.md')).toContain('Silverbrook Campaign');
     expect(fs.existsSync(path.join(root, 'raw/setting/from-silverbrook/characters/npcs/_template-npc.md'))).toBe(false);
-    for (const absent of ['raw/sessions/session-01.md', 'raw/interludes/2027-01-01-fire.md', 'wiki/characters/npcs/maren.md', '.dm-second-brain/studio/step-1.json']) {
+    // the old campaign's dated design (+ Prepare) is its history, already in its wiki
+    expect(read('raw/worldbuilding/lore/2026-01-01-notes.md')).toContain('subfolder');
+    for (const absent of ['raw/worldbuilding/2026-10-19-the-old-mill.md', 'raw/worldbuilding/2026-10-20-Bad Name.md', 'raw/sessions/session-01.md', 'raw/interludes/2027-01-01-fire.md', 'wiki/characters/npcs/maren.md', '.dm-second-brain/studio/step-1.json']) {
       expect(fs.existsSync(path.join(root, absent))).toBe(false);
     }
     expect(fs.existsSync(path.join(root, 'CLAUDE.md'))).toBe(true);
