@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  discardIngest, isWikiPath, resolveForIngest, loadIngest, newIngest, readWikiPage, saveIngest, stagedPaths, stageMove, stagePage,
+  discardIngest, isWikiPath, resolveForIngest, sourceChanged, loadIngest, newIngest, readWikiPage, saveIngest, stagedPaths, stageMove, stagePage,
 } from '../src/app/utils/ingest-state';
 import { isolateEnv, makeCampaign, makeTempDir } from './helpers';
 
@@ -40,12 +40,38 @@ describe('Ingest state', () => {
   it('starts in discuss with the recap mtime and saves/loads', () => {
     const s = newIngest(ID);
     expect(s).toMatchObject({ id: ID, phase: 'discuss', messages: [], changes: [], summary: null, reads: {}, rounds: 0, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } });
-    expect(s.sourceMtime).toBe(mtime(`raw/sessions/${ID}.md`));
+    expect(s.sourceStamp).toBe(String(mtime(`raw/sessions/${ID}.md`)));
     expect(loadIngest(ID)).toEqual(s);
     s.phase = 'working';
     saveIngest(s);
     expect(loadIngest(ID)?.phase).toBe('working');
     expect(loadIngest('session-09')).toBeNull();
+  });
+
+  it('stamps the initial design so an edit, an addition or a removal changes it', () => {
+    write('raw/worldbuilding/regions.md', '# Regions\n');
+    write('raw/worldbuilding/lore/gods.md', '# Gods\n');
+    const s = newIngest('design-initial');
+    expect(fs.existsSync(path.join(root, '.dm-second-brain/ingest/design-initial/state.json'))).toBe(true);
+    expect(sourceChanged(s)).toBe(false);
+    const later = new Date(Date.now() + 10_000);
+    fs.utimesSync(path.join(root, 'raw/worldbuilding/lore/gods.md'), later, later);
+    expect(sourceChanged(s)).toBe(true);
+    const t = newIngest('design-initial');
+    write('raw/worldbuilding/factions.md', '# Factions\n');
+    expect(sourceChanged(t)).toBe(true);
+    const u = newIngest('design-initial');
+    fs.rmSync(path.join(root, 'raw/worldbuilding/factions.md'));
+    expect(sourceChanged(u)).toBe(true);
+  });
+
+  it('a 0.10 state with sourceMtime only is unchanged while the recap is', () => {
+    const s = newIngest(ID) as Partial<ReturnType<typeof newIngest>> & ReturnType<typeof newIngest>;
+    const old = { ...s, sourceStamp: undefined, sourceMtime: mtime(`raw/sessions/${ID}.md`) } as unknown as typeof s;
+    expect(sourceChanged(old)).toBe(false);
+    const later = new Date(Date.now() + 10_000);
+    fs.utimesSync(path.join(root, `raw/sessions/${ID}.md`), later, later);
+    expect(sourceChanged(old)).toBe(true);
   });
 
   it('reads staged before real and records the real mtime once', () => {
