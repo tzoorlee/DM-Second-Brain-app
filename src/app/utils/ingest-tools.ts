@@ -3,7 +3,7 @@ import path from 'path';
 import matter from 'gray-matter';
 import type Anthropic from '@anthropic-ai/sdk';
 import { sessionFile } from './ingest-sessions';
-import { Change, IngestPhase, IngestState, isWikiPath, readReal, readStaged, readWikiPage, stageMove, stagePage } from './ingest-state';
+import { Change, IngestPhase, IngestState, isWikiPath, readStaged, readWikiPage, stageMove, stagePage } from './ingest-state';
 import { searchEntities } from './search';
 import { isDmSecretsHeading } from './secrets';
 import { getCampaignRoot } from './vault';
@@ -149,7 +149,8 @@ export function runTool(s: IngestState, name: string, input: Record<string, stri
         return { content: `Staged the move ${input.from} → ${input.to}.`, staged: stageMove(s, input.from, input.to) };
       case 'append_log': {
         if (!input.line.startsWith('## [')) return error('A log entry starts with "## [", e.g. "## [2026-02-01 | session-03] ingest — …".');
-        const log = readStaged(s, 'log.md') ?? readReal('log.md') ?? '# Log\n';
+        // Read like a page, so apply sees a hand edit of the real log as a conflict
+        const log = readWikiPage(s, 'log.md') ?? '# Log\n';
         return { content: 'Added to the staged log.', staged: stagePage(s, 'log.md', `${log.replace(/\n*$/, '\n\n')}${input.line.trim()}\n`) };
       }
       case 'finish':
