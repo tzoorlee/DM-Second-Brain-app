@@ -11,6 +11,12 @@ const GROUPS: { title: string; of: (c: Change) => boolean }[] = [
   { title: 'Index & log', of: c => c.path === 'index.md' || c.path === 'log.md' },
 ];
 
+// Changes Apply leaves out: still pending, or with a change request not sent to the agent
+export function leftOut(changes: Change[]): { pending: string[]; asked: string[] } {
+  const open = changes.filter(c => c.review === 'pending');
+  return { pending: open.filter(c => !c.note).map(c => c.path), asked: open.filter(c => c.note).map(c => c.path) };
+}
+
 const mark = (c: Change) => (c.review === 'approved' ? '✓' : c.review === 'rejected' ? '✗' : c.note ? '✎' : '•');
 
 interface ReviewPanelProps {
@@ -66,7 +72,12 @@ export default function ReviewPanel({ view, busy, onChanged, onRequestChanges, o
   const unresolved = view.conflicts.filter(p => !resolved[p]);
 
   const apply = async () => {
-    if (pending.length && !window.confirm(`${pending.length} change(s) are still pending and will be left out. Apply the approved ones?`)) return;
+    const out = leftOut(view.changes);
+    const parts = [
+      out.pending.length ? `${out.pending.length} change(s) still pending` : '',
+      out.asked.length ? `${out.asked.length} change request(s) not sent to the agent` : '',
+    ].filter(Boolean);
+    if (parts.length && !window.confirm(`${parts.join(' and ')}: those pages will be left out. Apply the approved ones?`)) return;
     if (view.linkWarnings.length && !window.confirm('Some approved pages link to new pages you rejected. Apply anyway?')) return;
     try {
       setError('');

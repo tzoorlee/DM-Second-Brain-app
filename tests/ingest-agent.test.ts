@@ -127,6 +127,23 @@ describe('Ingest agent', () => {
     expect(model.calls).toHaveLength(5);
   });
 
+  it('keeps working when the browser goes away mid-round', async () => {
+    const model = new FakeModel([
+      say('Takeaways.'),
+      use(call('write_page', { path: 'npcs/brother-varn.md', content: PAGE }), call('finish', { summary: 'Done.' })),
+    ]);
+    await startIngest(ID, model, () => {});
+    // a closed response stream makes every emit throw
+    await runIngestTurn(ID, { proceed: true }, model, () => {
+      throw new Error('Invalid state: Controller is already closed');
+    });
+    const s = loadIngest(ID)!;
+    expect(s.phase).toBe('review');
+    expect(s.changes.map(c => c.path)).toEqual(['npcs/brother-varn.md']);
+    const last = s.messages[s.messages.length - 2];
+    expect(JSON.stringify(last.content)).toContain('write_page');
+  });
+
   it('treats a chat "proceed" as Proceed', async () => {
     const model = new FakeModel([say('Takeaways.'), say('Working on it.')]);
     await startIngest(ID, model, () => {});

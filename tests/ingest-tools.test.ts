@@ -76,6 +76,11 @@ describe('Ingest tools', () => {
     expect(bad('npcs/x.md', '---\nname: X\n---\n# X\n')).toMatch(/type/);
     expect(bad('npcs/x.md', '# X\n')).toMatch(/type/);
     expect(bad('npcs/x.md', page('X', '\n## Segreti (solo DM)\nShh.\n'))).toContain('## Secrets (DM only)');
+    // DM-only text the app would not hide from players
+    for (const heading of ['### Secrets (DM only)', '## Secrets', '**Secrets (DM only)**', '#### DM notes'])
+      expect(bad('npcs/x.md', page('X', `\n${heading}\nShh.\n`))).toContain('## Secrets (DM only)');
+    // a secret page's own sections are fine
+    expect(runTool(s, 'write_page', { path: 'secrets/plot.md', content: '---\ntype: secret\n---\n# Plot\n\n## The Secret\nShh.\n' }).isError).toBeFalsy();
     const ok = runTool(s, 'write_page', { path: 'npcs/x.md', content: page('X', '\n## Secrets (DM only)\nShh.\n') });
     expect(ok.isError).toBeFalsy();
     expect(ok.staged).toEqual({ path: 'npcs/x.md', kind: 'new', review: 'pending' });

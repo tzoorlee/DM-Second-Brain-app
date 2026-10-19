@@ -127,6 +127,23 @@ describe('Ingest API', () => {
     expect(fs.readFileSync(hilda, 'utf-8')).toBe('# DM edit\n');
   });
 
+  it('refuses to discard while the agent is working', async () => {
+    await events(await start(json('POST'), ctx(ID)));
+    let release!: () => void;
+    const gate = new Promise<void>(r => (release = r));
+    const slow: StudioModel = { ...fake, async streamTurn(params, onText) {
+      await gate;
+      return fake.streamTurn(params, onText);
+    } };
+    setStudioModel(slow);
+    const running = chat(json('POST', { message: 'more' }), ctx(ID)).then(r => r.text());
+    await new Promise(r => setTimeout(r, 50));
+    expect((await discard(json('POST'), ctx(ID))).status).toBe(409);
+    release();
+    await running;
+    expect((await discard(json('POST'), ctx(ID))).status).toBe(200);
+  });
+
   it('answers 503 without credentials, 409 out of order, and discards', async () => {
     available = false;
     expect((await start(json('POST'), ctx(ID))).status).toBe(503);

@@ -38,6 +38,12 @@ function bubblesOf(view: IngestView): Bubble[] {
   return bubbles;
 }
 
+// After an error, a reload, or a dropped connection the agent may owe an answer: Continue asks for it
+export function canContinue(view: IngestView, error: string): boolean {
+  if (view.phase === 'working') return true;
+  return view.phase === 'discuss' && (!!error || view.messages.at(-1)?.role === 'user');
+}
+
 interface IngestChatProps {
   session: SessionInfo;
   view: IngestView | null;
@@ -153,7 +159,7 @@ export default function IngestChat({ session, view, aiAvailable, terminalCommand
             {phase === 'discuss' && (
               <button type="button" onClick={() => onSend({ proceed: true })} disabled={live.busy || !aiAvailable}>Proceed</button>
             )}
-            {phase === 'working' && !live.busy && (
+            {canContinue(view, live.error) && !live.busy && (
               <button type="button" onClick={() => onSend({ continue: true })} disabled={!aiAvailable}>Continue</button>
             )}
             <button type="button" className="secondary" onClick={discard} disabled={live.busy}>Discard</button>

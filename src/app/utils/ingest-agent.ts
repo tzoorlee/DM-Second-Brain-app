@@ -78,6 +78,9 @@ const PROCEED_WORDS = /^(proceed|go ahead|go|ok,? (proceed|go)|procedi|vai|ok,? 
 // One exchange at a time per ingest: a second request while the agent works would fork the state
 const running = new Set<string>();
 
+// Discard waits for this: a running exchange would save its state over the discarded one
+export const isRunning = (id: string) => running.has(id);
+
 // Runs the model until it stops calling tools, finishes, or uses MAX_ROUNDS calls.
 // Progress is saved after every tool round, so a failure keeps the staged work and
 // the history up to the last complete round; the failed reply is dropped.
@@ -146,14 +149,25 @@ async function exchange(s: IngestState, model: StudioModel, emit: Emit): Promise
   }
 }
 
-async function withLock(id: string, emit: Emit, run: () => Promise<void>) {
+// The browser may go away mid-exchange (tab closed, reload): its stream then throws on
+// every event. The agent finishes the round anyway, so history and staging stay in step.
+const quiet = (emit: Emit): Emit => e => {
+  try {
+    emit(e);
+  } catch {
+    // nobody is listening
+  }
+};
+
+async function withLock(id: string, rawEmit: Emit, run: (emit: Emit) => Promise<void>) {
+  const emit = quiet(rawEmit);
   if (running.has(id)) {
     emit({ type: 'error', message: `The agent is already working on ${id}.` });
     return;
   }
   running.add(id);
   try {
-    await run();
+    await run(emit);
   } finally {
     running.delete(id);
   }
@@ -165,7 +179,7 @@ export async function startIngest(id: string, model: StudioModel, emit: Emit): P
     emit({ type: 'error', message: check.reason });
     return;
   }
-  await withLock(id, emit, async () => {
+  await withLock(id, emit, async emit => {
     const s = newIngest(id);
     addUserText(s.messages, START_MESSAGE(sessionFile(id)));
     saveIngest(s);
@@ -179,7 +193,7 @@ export async function runIngestTurn(
   model: StudioModel,
   emit: Emit,
 ): Promise<void> {
-  await withLock(id, emit, async () => {
+  await withLock(id, emit, async emit => {
     const s = loadIngest(id);
     if (!s || (s.phase !== 'discuss' && s.phase !== 'working')) {
       emit({ type: 'error', message: s?.phase === 'review' ? 'The changes are in review: approve, reject or ask for changes.' : `${id} has no open ingest.` });
@@ -207,7 +221,7 @@ export async function runIngestTurn(
 
 // The DM's "Ask for changes" notes go back to the agent, which rewrites those pages only
 export async function requestChanges(id: string, model: StudioModel, emit: Emit): Promise<void> {
-  await withLock(id, emit, async () => {
+  await withLock(id, emit, async emit => {
     const s = loadIngest(id);
     const asked = s?.changes.filter(c => c.note && c.review === 'pending') ?? [];
     if (!s || s.phase !== 'review' || asked.length === 0) {

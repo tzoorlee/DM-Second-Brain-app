@@ -123,7 +123,10 @@ function pageProblem(p: string, content: string): string | null {
     }
     if (!data.type) return 'The page needs YAML frontmatter with a "type" field (see TEMPLATES.md).';
   }
-  const wrong = content.split(/\r?\n/).find(l => isDmSecretsHeading(l) && l.trim() !== '## Secrets (DM only)');
+  // Only that exact level-2 heading is hidden from players: anything else that looks like
+  // DM-only text (another level, bold, "Secrets" alone, a translation) would be shown
+  const looksDmOnly = (l: string) => isDmSecretsHeading(l) || /^\s*(#{1,6}\s+|\*\*)\s*(secrets?\b|.*\b(DM|GM)\b)/i.test(l);
+  const wrong = content.split(/\r?\n/).find(l => looksDmOnly(l) && l.trim() !== '## Secrets (DM only)');
   if (wrong) return `"${wrong.trim()}" marks DM-only text: the heading must be exactly "## Secrets (DM only)", or the app can't hide it from players.`;
   return null;
 }
