@@ -54,7 +54,21 @@ function worldbuildingFiles(): { initial: string[]; dated: string[]; invalid: st
     else if (topLevel && STARTS_DATED.test(rel)) out.invalid.push(rel);
     else out.initial.push(rel);
   }
+  out.dated.sort(byDateThenCopy);
   return out;
+}
+
+// Date, then name; the Studio names a second Prepare of the same day and title "<slug>-2",
+// so a numeric suffix sorts after the plain name and in number order (-2 before -10)
+function byDateThenCopy(a: string, b: string): number {
+  const key = (f: string) => {
+    const [, date, slug] = DATED.exec(f)!;
+    const m = /^(.*)-(\d+)$/.exec(slug);
+    return { date, base: m ? m[1] : slug, copy: m ? Number(m[2]) : 1 };
+  };
+  const x = key(a);
+  const y = key(b);
+  return x.date.localeCompare(y.date) || x.base.localeCompare(y.base) || x.copy - y.copy;
 }
 
 // A broken link or a file removed mid-scan is skipped, not fatal
